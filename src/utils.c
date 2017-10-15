@@ -5,6 +5,7 @@
 
 #include "utils.h"
 
+/* iprotue2/tc/tc_util.c */
 const struct rate_suffix {
 	const char *name;
 	double scale;
@@ -31,8 +32,6 @@ const struct rate_suffix {
 
 };
 
-double tick_in_usec = 1;
-
 int get_rate64(__u64 *rate, const char *str)
 {
 	char *p;
@@ -57,6 +56,10 @@ int get_rate64(__u64 *rate, const char *str)
 	*rate = bps;
 	return 0;
 }
+
+
+/* iprotue2/lib/utils.c */
+int __iproute2_hz_internal; 
 
 int __get_hz(void)
 {
@@ -86,87 +89,6 @@ int __get_hz(void)
 	if (hz)
 		return hz;
 	return HZ;
-}
-
-int tc_calc_rtable(struct tc_ratespec *r, __u32 *rtab,
-		   int cell_log, unsigned int mtu,
-		   enum link_layer linklayer)
-{
-	int i;
-	unsigned int sz;
-	unsigned int bps = r->rate;
-	unsigned int mpu = r->mpu;
-
-	if (mtu == 0)
-		mtu = 2047;
-
-	if (cell_log < 0) {
-		cell_log = 0;
-		while ((mtu >> cell_log) > 255)
-			cell_log++;
-	}
-
-	for (i = 0; i < 256; i++) {
-		sz = tc_adjust_size((i + 1) << cell_log, mpu, linklayer);
-		rtab[i] = tc_calc_xmittime(bps, sz);
-	}
-
-	r->cell_align =  -1;
-	r->cell_log = cell_log;
-	r->linklayer = (linklayer & TC_LINKLAYER_MASK);
-	return cell_log;
-}
-
-unsigned int tc_adjust_size(unsigned int sz, unsigned int mpu, enum link_layer linklayer)
-{
-	if (sz < mpu)
-		sz = mpu;
-
-	switch (linklayer) {
-	case LINKLAYER_ATM:
-		return tc_align_to_atm(sz);
-	case LINKLAYER_ETHERNET:
-	default:
-		/* No size adjustments on Ethernet */
-		return sz;
-	}
-}
-
-unsigned int tc_calc_xmittime(__u64 rate, unsigned int size)
-{
-	return tc_core_time2tick(TIME_UNITS_PER_SEC*((double)size/(double)rate));
-}
-
-unsigned int tc_core_time2tick(unsigned int time)
-{
-	return time*tick_in_usec;
-}
-
-unsigned int tc_align_to_atm(unsigned int size)
-{
-	int linksize, cells;
-
-	cells = size / ATM_CELL_PAYLOAD;
-	if ((size % ATM_CELL_PAYLOAD) > 0)
-		cells++;
-
-	linksize = cells * ATM_CELL_SIZE; /* Use full cell size to add ATM tax */
-	return linksize;
-}
-
-
-int ll_proto_a2n(unsigned short *id, const char *buf)
-{
-        int i;
-        for (i=0; i < sizeof(llproto_names)/sizeof(llproto_names[0]); i++) {
-                 if (strcasecmp(llproto_names[i].name, buf) == 0) {
-			 *id = htons(llproto_names[i].id);
-			 return 0;
-		 }
-	}
-	if (get_be16(id, buf, 0))
-		return -1;
-	return 0;
 }
 
 int get_be16(__be16 *val, const char *arg, int base)

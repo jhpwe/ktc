@@ -1,14 +1,18 @@
 #include <sys/socket.h>
 
-#include "tc_pass.h"
+#include "tc_core.h"
 #include "libnetlink.h"
 #include "ll_map.h"
 #include "utils.h"
 
-int __iproute2_hz_internal;
+struct req_s 
+{
+	struct nlmsghdr	n;
+	struct tcmsg	t;
+	char			buf[TCA_BUF_MAX];
+};
 
 //tc qdisc add dev wlp2s0 root handle 1: htb default 1
-
 int qdisc_init(char* dev)
 {
 	struct rtnl_handle rth;
@@ -79,7 +83,6 @@ int qdisc_init(char* dev)
 
 
 //class add dev dev_name parent 1: classid 1:2 htb rate 15mbit ceil ~~
-
 int cls_add(char* dev)
 {
 	struct rtnl_handle rth;
@@ -185,9 +188,7 @@ int cls_add(char* dev)
 	return 0;
 }
 
-
 //tc filter add dev eth0 parent 10: protocol ip prio 10 handle 1: cgroup
-
 int filter_add(char* dev)
 {
 	struct rtnl_handle rth;
@@ -220,6 +221,7 @@ int filter_add(char* dev)
 	req.t.tcm_parent = 0x10000;
 
 	//protocol
+	extern int ll_proto_a2n(unsigned short *id, const char *buf);
 	ll_proto_a2n(&id, "ip");
 	protocol = id;
 	protocol_set = 1;
