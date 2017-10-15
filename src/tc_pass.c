@@ -7,6 +7,8 @@
 
 int __iproute2_hz_internal;
 
+//tc qdisc add dev wlp2s0 root handle 1: htb default 1
+
 int qdisc_init(char* dev)
 {
 	struct rtnl_handle rth;
@@ -76,7 +78,8 @@ int qdisc_init(char* dev)
 }
 
 
-//class add dev dev_name parent 1: classid 1:2 htb rate 15mbit
+//class add dev dev_name parent 1: classid 1:2 htb rate 15mbit ceil ~~
+
 int cls_add(char* dev)
 {
 	struct rtnl_handle rth;
@@ -182,10 +185,94 @@ int cls_add(char* dev)
 	return 0;
 }
 
+
+//tc filter add dev eth0 parent 10: protocol ip prio 10 handle 1: cgroup
+
+int filter_add(char* dev)
+{
+	struct rtnl_handle rth;
+	struct req_s req;
+	char dev_name[16] = "wlp2s0";
+	int protocol_set = 0;
+	char handle[16] = "1:";
+	__u32 prio = 0;
+	__u32 protocol = 0;
+	__u16 id;
+	struct tcmsg *t;
+	struct rtattr *tail;
+	long h = 0;
+
+	if (rtnl_open(&rth, 0) < 0) {
+		fprintf(stderr, "Cannot open rtnetlink\n");
+		exit(1);
+	}
+	else
+	{
+		printf("opened\n");
+	}
+
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_EXCL|NLM_F_CREATE;
+	req.n.nlmsg_type = RTM_NEWTFILTER;
+	req.t.tcm_family = AF_UNSPEC;
+
+	//parent 1:
+	req.t.tcm_parent = 0x10000;
+
+	//protocol
+	ll_proto_a2n(&id, "ip");
+	protocol = id;
+	protocol_set = 1;
+
+	//prio
+	get_u32(&prio, "10", 0);
+
+	//cgroup
+	req.t.tcm_info = TC_H_MAKE(prio<<16, protocol);
+	addattr_l(&req.n, sizeof(req), TCA_KIND, "cgroup", 7);
+
+	//handle
+	h = strtol(handle, NULL, 0);
+	if (h == LONG_MIN || h == LONG_MAX) 
+	{
+		fprintf(stderr, "Illegal handle \"%s\", must be numeric.\n", handle);
+	}
+	t = NLMSG_DATA(&req.n);
+	t->tcm_handle = h;
+
+	tail = (struct rtattr *)(((void *)&req.n)+NLMSG_ALIGN(req.n.nlmsg_len));
+	addattr_l(&req.n, MAX_MSG, TCA_OPTIONS, NULL, 0);
+
+	tail->rta_len = (((void *)&req.n)+req.n.nlmsg_len) - (void *)tail;
+
+	//dev
+	if (dev_name[0])  {
+		ll_init_map(&rth);
+
+		req.t.tcm_ifindex = ll_name_to_index(dev_name);
+		if (req.t.tcm_ifindex == 0) {
+			fprintf(stderr, "Cannot find device \"%s\"\n", dev_name);
+			return 1;
+		}
+	}
+
+	//send
+	if (rtnl_talk(&rth, &req.n, NULL, 0) < 0) {
+		fprintf(stderr, "We have an error talking to the kernel\n");
+		return 2;
+	}
+
+	rtnl_close(&rth);
+
+	return 0;
+}
+
+
 int main(void)
 {
 	qdisc_init("wlp2s0");
 	cls_add("wlp2s0");
+	filter_add("wlp2s0");
 	return 0;
 }
 

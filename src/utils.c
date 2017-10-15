@@ -153,3 +153,78 @@ unsigned int tc_align_to_atm(unsigned int size)
 	linksize = cells * ATM_CELL_SIZE; /* Use full cell size to add ATM tax */
 	return linksize;
 }
+
+
+int ll_proto_a2n(unsigned short *id, const char *buf)
+{
+        int i;
+        for (i=0; i < sizeof(llproto_names)/sizeof(llproto_names[0]); i++) {
+                 if (strcasecmp(llproto_names[i].name, buf) == 0) {
+			 *id = htons(llproto_names[i].id);
+			 return 0;
+		 }
+	}
+	if (get_be16(id, buf, 0))
+		return -1;
+	return 0;
+}
+
+int get_be16(__be16 *val, const char *arg, int base)
+{
+	__u16 v;
+	int ret = get_u16(&v, arg, base);
+
+	if (!ret)
+		*val = htons(v);
+
+	return ret;
+}
+
+int get_u32(__u32 *val, const char *arg, int base)
+{
+	unsigned long res;
+	char *ptr;
+
+	if (!arg || !*arg)
+		return -1;
+	res = strtoul(arg, &ptr, base);
+
+	/* empty string or trailing non-digits */
+	if (!ptr || ptr == arg || *ptr)
+		return -1;
+
+	/* overflow */
+	if (res == ULONG_MAX && errno == ERANGE)
+		return -1;
+
+	/* in case UL > 32 bits */
+	if (res > 0xFFFFFFFFUL)
+		return -1;
+
+	*val = res;
+	return 0;
+}
+
+int get_u16(__u16 *val, const char *arg, int base)
+{
+	unsigned long res;
+	char *ptr;
+
+	if (!arg || !*arg)
+		return -1;
+	res = strtoul(arg, &ptr, base);
+
+	/* empty string or trailing non-digits */
+	if (!ptr || ptr == arg || *ptr)
+		return -1;
+
+	/* overflow */
+	if (res == ULONG_MAX && errno == ERANGE)
+		return -1;
+
+	if (res > 0xFFFFUL)
+		return -1;
+
+	*val = res;
+	return 0;
+}
