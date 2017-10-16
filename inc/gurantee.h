@@ -24,4 +24,7 @@ struct clsinfo
 	struct pinfo*			pinfos;
 };
 
+void clsinfo_init(__u32 defid, __u32 rate, __u32 ceil);
+int clsinfo_add(__u32 clsid, pid_t pid, __u32 rate, __u32 ceil, __u32 gurantee);
+
 #endif
