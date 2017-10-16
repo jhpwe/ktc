@@ -266,8 +266,8 @@ int main(void)
 {
 	int sel;
 
-	if( access( "/", R_OK | W_OK ) != 0 ){
-		pritnf("Must run as root.")
+	if(access( "/", R_OK | W_OK) != 0) {
+		printf("Must run as root.");
 		return -1;
 	}
 
