@@ -8,7 +8,7 @@
 struct pinfo 
 {
 	struct list_head		list;
-	pid_t					pid;
+	char					pid[8];
 
 	__u32					gurantee;
 };
@@ -18,13 +18,16 @@ struct clsinfo
 	struct list_head		list;
 	__u32					clsid;		// Class id
 
-	__u32					rate;		// Bandwidth rate
-	__u32					ceil;		// Bandwidth ceil
-	__u32					gurantee;	// Guranteed bandwidth rate
+	__u64					rate;		// Bandwidth rate
+	__u64					ceil;		// Bandwidth ceil
+	__u64					gurantee;	// Guranteed bandwidth rate
 	struct pinfo*			pinfos;
 };
 
-void clsinfo_init(__u32 defid, __u32 rate, __u32 ceil);
-int clsinfo_add(__u32 clsid, pid_t pid, __u32 rate, __u32 ceil, __u32 gurantee);
 
+void clsinfo_show();
+void clsinfo_init(__u32 defid, __u32 rate, __u32 ceil);
+int clsinfo_add(__u32 clsid, char* pid, __u32 rate, __u32 ceil, __u32 gurantee);
+int clsinfo_add_pid(__u32 clsid, char* pid);
+struct clsinfo* clsinfo_create_cls(__u32 clsid, __u64 rate, __u64 ceil, __u64 gurantee);
 #endif

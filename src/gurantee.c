@@ -24,7 +24,7 @@ void clsinfo_show()
 		struct list_head* p_head = &cls_pos->pinfos->list;
 
 		list_for_each_entry(p_pos, p_head, list) {
-			printf("\tpid: 0x%X / gurantee: 0x%X\n", p_pos->pid, p_pos->gurantee);
+			printf("\tpid: 0x%s / gurantee: 0x%X\n", p_pos->pid, p_pos->gurantee);
 		}
 	}
 }
@@ -46,7 +46,7 @@ void clsinfo_init(__u32 defid, __u32 rate, __u32 ceil)
 	INIT_LIST_HEAD(&defcls.pinfos->list);
 }
 
-struct clsinfo* clsinfo_create_cls(__u32 clsid, __u32 rate, __u32 ceil, __u32 gurantee) 
+struct clsinfo* clsinfo_create_cls(__u32 clsid, __u64 rate, __u64 ceil, __u64 gurantee) 
 {
 	struct clsinfo* tmp = malloc(sizeof(struct clsinfo));
 	tmp->clsid = clsid;
@@ -56,6 +56,7 @@ struct clsinfo* clsinfo_create_cls(__u32 clsid, __u32 rate, __u32 ceil, __u32 gu
 	} else {
 		tmp->ceil = rate;
 	}
+
 	tmp->gurantee = gurantee;
 	if(defcls.gurantee - tmp->gurantee < 0) {
 		free(tmp);
@@ -66,8 +67,7 @@ struct clsinfo* clsinfo_create_cls(__u32 clsid, __u32 rate, __u32 ceil, __u32 gu
 
 	tmp->pinfos = malloc(sizeof(struct pinfo));
 	INIT_LIST_HEAD(&tmp->pinfos->list);	
-
-	list_add(&defcls.list, &tmp->list);	
+	list_add(&tmp->list, &defcls.list);	
 
 	return tmp;
 }
@@ -91,7 +91,37 @@ void clsinfo_destroy_cls(struct clsinfo* clsinfo)
 	free(clsinfo);
 }
 
-int clsinfo_add(__u32 clsid, pid_t pid, __u32 rate, __u32 ceil, __u32 gurantee) 
+int clsinfo_add_pid(__u32 clsid, char* pid) 
+{
+	struct clsinfo* target = NULL;
+	struct clsinfo* pos = NULL;
+	struct list_head* head = &pos->pinfos->list;
+	list_for_each_entry(pos, head, list) {
+		if(pos->clsid == clsid) {
+			target = pos;
+			break;
+		}
+	}
+
+//	if(target == NULL) {
+//		target = clsinfo_create_cls(clsid, rate, ceil, gurantee);
+//		if(target == NULL) {	/* Not enough gurantee */
+//			return -1;
+//		}
+//	} else {
+//		target->gurantee += gurantee;
+//	}
+
+	struct pinfo* pinfo = malloc(sizeof(struct pinfo));
+	memset(pinfo->pid, 0, 8);
+	strncpy(pinfo->pid, pid, strlen(pid));
+
+	list_add(&pinfo->list, &target->pinfos->list);
+
+	return defcls.gurantee;
+}
+
+int clsinfo_add(__u32 clsid, char* pid, __u32 rate, __u32 ceil, __u32 gurantee) 
 {
 	struct clsinfo* target = NULL;
 	struct clsinfo* pos = NULL;
@@ -113,7 +143,8 @@ int clsinfo_add(__u32 clsid, pid_t pid, __u32 rate, __u32 ceil, __u32 gurantee)
 	}
 
 	struct pinfo* pinfo = malloc(sizeof(struct pinfo));
-	pinfo->pid = pid;	
+	memset(pinfo->pid, 0, 8);
+	strncpy(pinfo->pid, pid, strlen(pid));
 	pinfo->gurantee = gurantee;
 
 	list_add(&pinfo->list, &target->pinfos->list);

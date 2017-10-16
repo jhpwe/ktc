@@ -5,6 +5,7 @@
 #include "libnetlink.h"
 #include "ll_map.h"
 #include "utils.h"
+#include "gurantee.h"
 
 #define NET_CLS_PATH "/sys/fs/cgroup/net_cls/"
 
@@ -140,6 +141,8 @@ int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, uns
 		opt.rate.rate = (rate64 >= (1ULL << 32)) ? ~0U : rate64;
 		opt.ceil.rate = (ceil64 >= (1ULL << 32)) ? ~0U : ceil64;
 
+		clsinfo_create_cls(clsid, rate64, ceil64, rate64);
+
 		if (!buffer)
 			buffer = rate64 / get_hz() + mtu;
 		if (!cbuffer)
@@ -273,7 +276,7 @@ int cgroup_proc_add(char* pid, __u32 clsid)
 {
 	char cmd[64] = {};
 	char path[32] = NET_CLS_PATH;
-	
+
 	sprintf(path, "%s%s", path, pid);
 	sprintf(cmd, "mkdir %s > /dev/null 2> /dev/null", path);
 	system(cmd);
@@ -296,6 +299,8 @@ int cgroup_proc_add(char* pid, __u32 clsid)
 	}
 	sprintf(cmd, "echo 0x%x > %s/net_cls.classid", clsid, path);
 	system(cmd);
+
+	clsinfo_add_pid(clsid, pid);
 
 	return 0;
 }
@@ -341,30 +346,38 @@ int main(int argc, char** argv)
 	sel = atoi(argv[1]);
 
 	cgroup_init();
+	clsinfo_init(0x01, 1000000000, 1000000000);
 
-	switch(sel)
-	{
-		case 1:
-			qdisc_init("wlp2s0", 0x010000, 0x1);
-			break;
-		case 2:
-			cls_modify("wlp2s0", 0x010000, 0x010001, "15mbps", "20mbps", KTC_CREATE_CLASS);
-			break;
-		case 3:
-			filter_add("wlp2s0", 0x010000, "10", "1:");
-			break;
-		case 4:
-			cls_modify("wlp2s0", 0x010000, 0x010001, "5mbps", "5mbps", KTC_CHANGE_CLASS);
-			break;
-		case 5:
-			cls_modify("wlp2s0", 0, 0x010001, NULL, NULL, KTC_DELETE_CLASS);
-			break;
-		case 6:
-			cgroup_proc_add("2357", 0x010001);
-			break;
-		case 7:
-			cgroup_proc_del("2357");
-			break;
+	while(sel != 0) {
+		switch(sel)
+		{
+			case 1:
+				qdisc_init("wlp2s0", 0x010000, 0x1);
+				break;
+			case 2:
+				cls_modify("wlp2s0", 0x010000, 0x010001, "15mbps", "20mbps", KTC_CREATE_CLASS);
+				break;
+			case 3:
+				filter_add("wlp2s0", 0x010000, "10", "1:");
+				break;
+			case 4:
+				cls_modify("wlp2s0", 0x010000, 0x010001, "5mbps", "5mbps", KTC_CHANGE_CLASS);
+				break;
+			case 5:
+				cls_modify("wlp2s0", 0, 0x010001, NULL, NULL, KTC_DELETE_CLASS);
+				break;
+			case 6:
+				cgroup_proc_add("2357", 0x010001);
+				break;
+			case 7:
+				cgroup_proc_del("2357");
+				break;
+			case 8:
+				clsinfo_show();
+				break;
+		}
+		clsinfo_show();
+		scanf("%d", &sel);
 	}
 	
 	return 0;
