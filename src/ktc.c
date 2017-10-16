@@ -37,10 +37,13 @@ struct req_s
 	char			buf[TCA_BUF_MAX];
 };
 
+static __u32 parent = 0x010000;
+static __u32 defcls = 0x01;
+
 /* Adding defualt htb qdisc
 * $ tc qdisc add dev <dev_name> root handle <root_id> htb default <default_id>
 **/
-int qdisc_init(char* dev, __u32 handle, __u32 defcls)
+int qdisc_init(char* dev)
 {
 	struct rtnl_handle rth;
 	struct req_s req;
@@ -61,7 +64,7 @@ int qdisc_init(char* dev, __u32 handle, __u32 defcls)
 	req.n.nlmsg_type = RTM_NEWQDISC;
 	req.t.tcm_family = AF_UNSPEC;
 	req.t.tcm_parent = TC_H_ROOT;							// "root" qdisc as root
-	req.t.tcm_handle = handle; 								// "handle handle:" root handle '1' --> '0x010000'
+	req.t.tcm_handle = parent; 								// "handle handle:" root handle '1' --> '0x010000'
 	addattr_l(&req.n, sizeof(req), TCA_KIND, "htb", 4);		// "htb" qdisc kind
 	opt.defcls = defcls; 									// "default defcls" setting default class id to '0x01'
 
@@ -122,6 +125,8 @@ int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, uns
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg));
 	req.t.tcm_family = AF_UNSPEC;
 
+	req.t.tcm_parent = parent; // "parent 1:" parent qidsc handle number
+	req.t.tcm_handle = clsid;  // "classid 1:1" class id as 1:1
 	/* Setting nlmsg by specific flags */
 	switch(cls_flag)
 	{
@@ -211,11 +216,12 @@ int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, uns
 /* Adding cgroup filter to class, don't configuring class id like other filters
 * $ tc filter add dev <dev_name> parent <parent_id>: protocol ip prio <prio> handle <class_id>: cgroup
 **/
-int filter_add(char* dev, __u32 parent, char* _prio, char* handle)
+int filter_add(char* dev, char* handle)
 {
 	struct rtnl_handle rth;
 	struct req_s req;
 	struct rtattr *tail;
+	char* _prio = "10";
 
 	int protocol_set = 0;
 	__u32 prio = 0;
