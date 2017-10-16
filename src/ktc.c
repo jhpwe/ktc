@@ -6,6 +6,8 @@
 #include "ll_map.h"
 #include "utils.h"
 
+#define NET_CLS_PATH "/sys/fs/cgroup/net_cls/"
+
 enum ktc_cls_flags {
 	KTC_CREATE_CLASS,
 	KTC_CHANGE_CLASS,
@@ -262,16 +264,83 @@ int filter_add(char* dev, __u32 parent, char* _prio, char* handle)
 	return 0;
 }
 
-int main(void)
+int cgroup_init(void)
 {
-	int sel;
+	return 0;
+}
 
-	if(access( "/", R_OK | W_OK) != 0) {
-		printf("Must run as root.");
+int cgroup_proc_add(char* pid, __u32 clsid)
+{
+	char cmd[64] = {};
+	char path[32] = NET_CLS_PATH;
+	
+	sprintf(path, "%s%s", path, pid);
+	sprintf(cmd, "mkdir %s > /dev/null 2> /dev/null", path);
+	system(cmd);
+
+	if(access(path, R_OK | W_OK) != 0) {
+		printf("Failed to add process directory in cgroup.\n");
 		return -1;
 	}
 
-	scanf("%d",&sel);
+	for(int i = 0; i < 64; i++)
+	{
+		cmd[i] = '\0';
+	}
+	sprintf(cmd, "echo %s > %s/cgroup.procs",pid, path);
+	system(cmd);
+
+	for(int i = 0; i < 64; i++)
+	{
+		cmd[i] = '\0';
+	}
+	sprintf(cmd, "echo 0x%x > %s/net_cls.classid", clsid, path);
+	system(cmd);
+
+	return 0;
+}
+
+int cgroup_proc_del(char* pid)
+{
+	char cmd[64] = {};
+	char path[32] = NET_CLS_PATH;
+
+	sprintf(cmd, "echo %s > %scgroup.procs",pid, path);
+	system(cmd);
+	
+	for(int i = 0; i < 64; i++)
+	{
+		cmd[i] = '\0';
+	}
+	sprintf(path, "%s%s", path, pid);
+	sprintf(cmd, "rmdir %s > /dev/null 2> /dev/null", path);
+	system(cmd);
+
+	if(access(path, R_OK | W_OK) == 0) {
+		printf("Failed to remove process directory in cgroup.\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+int main(int argc, char** argv)
+{
+	int sel;
+
+	if(access("/", R_OK | W_OK) != 0) {
+		printf("Must run as root.\n");
+		return -1;
+	}
+
+	if(argc < 2)
+	{
+		printf("need to input argument.\n");
+	}
+
+	sel = atoi(argv[1]);
+
+	cgroup_init();
 
 	switch(sel)
 	{
@@ -289,6 +358,12 @@ int main(void)
 			break;
 		case 5:
 			cls_modify("wlp2s0", 0, 0x010001, NULL, NULL, KTC_DELETE_CLASS);
+			break;
+		case 6:
+			cgroup_proc_add("2357", 0x010001);
+			break;
+		case 7:
+			cgroup_proc_del("2357");
 			break;
 	}
 	
