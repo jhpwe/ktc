@@ -11,24 +11,6 @@ enum ktc_cls_flags {
 	KTC_DELETE_CLASS,
 };
 
-struct clsinfo 
-{
-	__u32	parent;		// Parent id
-	__u32	clsid;		// Class id
-
-	__u32	rate;		// Bandwidth rate
-	__u32	ceil;		// Bandwidth ceil
-	__u32	gurantee;	// Guranteed bandwidth rate
-};
-
-struct pidmap 
-{
-	__u32	clsid;
-	pid_t	pid;
-
-	__u32	gurantee;
-};
-
 struct req_s 
 {
 	struct nlmsghdr	n;
@@ -36,13 +18,13 @@ struct req_s
 	char			buf[TCA_BUF_MAX];
 };
 
-static __u32 parent = 0x010000;
-static __u32 defcls = 0x01;
+//static __u32 parent = 0x010000;
+//static __u32 defcls = 0x01;
 
 /* Adding defualt htb qdisc
 * $ tc qdisc add dev <dev_name> root handle <root_id> htb default <default_id>
 **/
-int qdisc_init(char* dev)
+int qdisc_init(char* dev, __u32 parent, __u32 defcls)
 {
 	struct rtnl_handle rth;
 	struct req_s req;
@@ -215,12 +197,11 @@ int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, uns
 /* Adding cgroup filter to class, don't configuring class id like other filters
 * $ tc filter add dev <dev_name> parent <parent_id>: protocol ip prio <prio> handle <class_id>: cgroup
 **/
-int filter_add(char* dev, char* handle)
+int filter_add(char* dev, __u32 parent, char* _prio, char* handle)
 {
 	struct rtnl_handle rth;
 	struct req_s req;
 	struct rtattr *tail;
-	char* _prio = "10";
 
 	int protocol_set = 0;
 	__u32 prio = 0;
