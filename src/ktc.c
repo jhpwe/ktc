@@ -1,4 +1,5 @@
 #include <sys/socket.h>
+#include <unistd.h>
 
 #include "tc_core.h"
 #include "libnetlink.h"
@@ -264,6 +265,12 @@ int filter_add(char* dev, __u32 parent, char* _prio, char* handle)
 int main(void)
 {
 	int sel;
+
+	if( access( "/", R_OK | W_OK ) != 0 ){
+		pritnf("Must run as root.")
+		return -1;
+	}
+
 	scanf("%d",&sel);
 
 	switch(sel)
@@ -284,6 +291,7 @@ int main(void)
 			cls_modify("wlp2s0", 0, 0x010001, NULL, NULL, KTC_DELETE_CLASS);
 			break;
 	}
+	
 	return 0;
 }
 
