@@ -30,10 +30,13 @@ struct req_s
 	char			buf[TCA_BUF_MAX];
 };
 
+static __u32 parent = 0x010000;
+static __u32 defcls = 0x01;
+
 /* Adding defualt htb qdisc
 * $ sudd tc qdisc add dev wlp2s0 root handle 1: htb default 1
 **/
-int qdisc_init(char* dev, __u32 handle, __u32 defcls)
+int qdisc_init(char* dev)
 {
 	struct rtnl_handle rth;
 	struct req_s req;
@@ -56,7 +59,7 @@ int qdisc_init(char* dev, __u32 handle, __u32 defcls)
 	req.n.nlmsg_type = RTM_NEWQDISC;
 	req.t.tcm_family = AF_UNSPEC;
 	req.t.tcm_parent = TC_H_ROOT;							// "root" qdisc as root
-	req.t.tcm_handle = handle; 								// "handle handle:" root handle '1' --> '0x010000'
+	req.t.tcm_handle = parent; 								// "handle handle:" root handle '1' --> '0x010000'
 	addattr_l(&req.n, sizeof(req), TCA_KIND, "htb", 4);		// "htb" qdisc kind
 	opt.defcls = defcls; 									// "default defcls" setting default class id to '0x01'
 
@@ -91,7 +94,7 @@ int qdisc_init(char* dev, __u32 handle, __u32 defcls)
 /* Adding class to root qdisc
 * $ class add dev dev_name parent 1: classid 1:1 htb rate 15mbit ceil ~~
 **/
-int cls_add(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil)
+int cls_add(char* dev, __u32 clsid, char* rate, char* ceil)
 {
 	struct rtnl_handle rth;
 	struct req_s req;
@@ -120,7 +123,7 @@ int cls_add(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil)
 	req.t.tcm_family = AF_UNSPEC;
 
 	req.t.tcm_parent = parent; // "parent 1:" parent qidsc handle number
-	req.t.tcm_handle = clsid; // "classid 1:1" class id as 1:1
+	req.t.tcm_handle = clsid;  // "classid 1:1" class id as 1:1
 
 	addattr_l(&req.n, sizeof(req), TCA_KIND, "htb", 4);
 
@@ -188,11 +191,12 @@ int cls_add(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil)
 /* Adding cgroup filter to class, don't configuring class id like other filters
 * $ filter add dev eth0 parent 10: protocol ip prio 10 handle 1: cgroup
 **/
-int filter_add(char* dev, __u32 parent, char* _prio, char* handle)
+int filter_add(char* dev, char* handle)
 {
 	struct rtnl_handle rth;
 	struct req_s req;
 	struct rtattr *tail;
+	char* _prio = "10";
 
 	int protocol_set = 0;
 	__u32 prio = 0;
@@ -256,9 +260,9 @@ int filter_add(char* dev, __u32 parent, char* _prio, char* handle)
 
 int main(void)
 {
-	qdisc_init("wlp2s0", 0x010000, 0x1);
-	cls_add("wlp2s0", 0x010000, 0x010001, "15mbps", "20mbps");
-	filter_add("wlp2s0", 0x010000, "10", "1:");
+	qdisc_init("wlp2s0");
+	cls_add("wlp2s0", 0x010001, "15mbps", "20mbps");
+	filter_add("wlp2s0","1:");
 	return 0;
 }
 
