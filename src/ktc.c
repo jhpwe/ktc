@@ -79,6 +79,8 @@ int qdisc_init(char* dev, __u32 parent, __u32 defcls)
 
 	rtnl_close(&rth);
 
+	clsinfo_init(defcls, 1000000000, 1000000000);
+
 	return 0;
 }
 
@@ -327,6 +329,8 @@ int cgroup_proc_add(char* pid, __u32 clsid)
 	}
 	fclose(fp);
 
+	clsinfo_add_pid(clsid, pid);
+
 	return 0;
 }
 
@@ -360,6 +364,7 @@ int cgroup_proc_del(char* pid)
 		return -1;
 	}
 
+	clsinfo_del_pid(pid);
 	return 0;
 }
 
@@ -381,7 +386,6 @@ int main(int argc, char** argv)
 	sel = atoi(argv[1]);
 
 	cgroup_init();
-	clsinfo_init(0x01, 1000000000, 1000000000);
 
 	while(sel != 0) {
 		switch(sel)
@@ -402,16 +406,15 @@ int main(int argc, char** argv)
 				cls_modify("wlp2s0", 0, 0x010001, NULL, NULL, KTC_DELETE_CLASS);
 				break;
 			case 6:
-				cgroup_proc_add("1030", 0x010001);
+				cgroup_proc_add("4049", 0x010001);
 				break;
 			case 7:
-				cgroup_proc_del("1030");
+				cgroup_proc_del("4049");
 				break;
 			case 8:
 				clsinfo_show();
 				break;
 		}
-		clsinfo_show();
 		scanf("%d", &sel);
 	}
 	

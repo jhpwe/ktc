@@ -10,7 +10,7 @@ struct pinfo
 	struct list_head		list;
 	char					pid[8];
 
-	__u32					gurantee;
+	__u64					gurantee;
 };
 
 struct clsinfo 
@@ -30,4 +30,5 @@ void clsinfo_init(__u32 defid, __u32 rate, __u32 ceil);
 int clsinfo_add(__u32 clsid, char* pid, __u32 rate, __u32 ceil, __u32 gurantee);
 int clsinfo_add_pid(__u32 clsid, char* pid);
 struct clsinfo* clsinfo_create_cls(__u32 clsid, __u64 rate, __u64 ceil, __u64 gurantee);
+int clsinfo_del_pid(char* pid);
 #endif
