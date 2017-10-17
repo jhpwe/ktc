@@ -26,9 +26,17 @@ struct clsinfo
 
 
 void clsinfo_show();
-void clsinfo_init(__u32 parent, __u32 defid, char* total, __u32 rate, __u32 ceil);
 int clsinfo_add(__u32 clsid, char* pid, __u32 rate, __u32 ceil, __u32 gurantee);
 int clsinfo_add_pid(__u32 clsid, char* pid);
 struct clsinfo* clsinfo_create_cls(__u32 clsid, __u64 rate, __u64 ceil, __u64 gurantee);
 int clsinfo_del_pid(char* pid);
+
+
+void clsinfo_init(__u32 parent, __u32 defid, char* total, __u32 rate, __u32 ceil);
+__u32 clsinfo_check_pid(char* pid);
+__u32 clsinfo_create_clsid(void);
+__u64 clsinfo_pid_add(char* pid, __u32 clsid, char* rate, char* ceil, char* gurantee);
+__u64 clsinfo_pid_change(char* pid, __u32 clsid, char* rate, char* ceil, char* gurantee);
+__u64 clsinfo_pid_delete(char* pid, __u32 clsid);
+
 #endif
