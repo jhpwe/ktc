@@ -79,8 +79,6 @@ int qdisc_init(char* dev, __u32 parent, __u32 defcls)
 
 	rtnl_close(&rth);
 
-	clsinfo_init(defcls, 1000000000, 1000000000);
-
 	return 0;
 }
 
@@ -143,8 +141,6 @@ int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, uns
 		get_rate64(&ceil64, ceil);	// "ceil ##mbps"
 		opt.rate.rate = (rate64 >= (1ULL << 32)) ? ~0U : rate64;
 		opt.ceil.rate = (ceil64 >= (1ULL << 32)) ? ~0U : ceil64;
-
-		clsinfo_create_cls(clsid, rate64, ceil64, rate64);
 
 		if (!buffer)
 			buffer = rate64 / get_hz() + mtu;
@@ -329,8 +325,6 @@ int cgroup_proc_add(char* pid, __u32 clsid)
 	}
 	fclose(fp);
 
-	clsinfo_add_pid(clsid, pid);
-
 	return 0;
 }
 
@@ -364,9 +358,56 @@ int cgroup_proc_del(char* pid)
 		return -1;
 	}
 
-	clsinfo_del_pid(pid);
 	return 0;
 }
+
+int ktc_proc_insert()
+{
+	//check pid exist
+
+	//__u32 clsinfo_check_pid(char* pid); exist = 1, not = 0
+
+	//__u32 clsinfo_create_clsid(void); return clsid
+
+	//class_modify() <- add
+
+	//cgroup_proc_add(pid, clsid);
+
+	//__u64 clsinfo_pid_add(char* pid, __u32 clsid, rate, ceil, gurantee) fail < 0, success = res gurantee
+
+	//class_modify(gurantee) <- edit default
+}
+
+int ktc_proc_modify
+{
+	//check pid exist
+
+	//__u32 clsinfo_check_pid(char* pid); exist = clsid, not ex = 0
+
+	//class_modify() <- change
+
+	//cgroup_proc_add
+
+	//__u64 clsinfo_pid_change(char* pid, __u32 clsid, rate, ceil, gurantee)  fail < 0, success = res gurantee
+
+	//class_modify() <- edit default
+}
+
+int ktc_proc_delete
+{
+	//check pid exist
+
+	//__u32 clsinfo_check_pid(char* pid); exist = clsid, not ex = 0
+
+	//class_modify() <- delete
+
+	//cgroup_proc_delete
+
+	//__u64 clsinfo_pid_delete(char* pid, __u32 clsid, __64* gurantee) fail < 0, success = res gurantee
+
+	//class_modify() <- edit default
+}
+
 
 int main(int argc, char** argv)
 {
@@ -383,9 +424,9 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
-	sel = atoi(argv[1]);
-
 	cgroup_init();
+
+	sel = atoi(argv[1]);
 
 	while(sel != 0) {
 		switch(sel)
