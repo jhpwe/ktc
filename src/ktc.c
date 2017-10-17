@@ -14,6 +14,7 @@ enum ktc_cls_flags {
 	KTC_CREATE_CLASS,
 	KTC_CHANGE_CLASS,
 	KTC_DELETE_CLASS,
+	KTC_CHANGE_DEFUALT
 };
 
 struct req_s 
@@ -87,7 +88,7 @@ int qdisc_init(char* dev, __u32 parent, __u32 defcls)
 * $ tc class change dev <dev_name> parent <parent_id> classid <parent_id>:<class_id> htb rate <rate> ceil <ceil>
 * $ tc class delete dev <dev_name> classid <parent_id>:<class:id>
 **/
-int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, unsigned int cls_flag)
+int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, unsigned int cls_flag, __u64 res_gurantee)
 {
 	struct rtnl_handle rth;
 	struct req_s req;
@@ -130,6 +131,11 @@ int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, uns
 			req.n.nlmsg_flags = NLM_F_REQUEST | 0;
 			req.n.nlmsg_type = RTM_DELTCLASS;
 			break;
+		case KTC_CHANGE_DEFUALT : 
+			req.n.nlmsg_flags = NLM_F_REQUEST | 0;
+			req.n.nlmsg_type = RTM_NEWTCLASS;
+			req.t.tcm_parent = parent; // "parent 1:" parent qidsc handle number
+			break;
 	}
 	req.t.tcm_handle = clsid; // "classid 1:1" class id as 1:1
 
@@ -137,7 +143,11 @@ int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, uns
 	{
 		addattr_l(&req.n, sizeof(req), TCA_KIND, "htb", 4);
 
-		get_rate64(&rate64, rate);	// "rate ##mbps"
+		if(cls_flag != KTC_CHANGE_DEFUALT)
+			get_rate64(&rate64, rate);	// "rate ##mbps"
+		else
+			rate64 = res_gurantee;
+		
 		get_rate64(&ceil64, ceil);	// "ceil ##mbps"
 		opt.rate.rate = (rate64 >= (1ULL << 32)) ? ~0U : rate64;
 		opt.ceil.rate = (ceil64 >= (1ULL << 32)) ? ~0U : ceil64;
@@ -266,6 +276,15 @@ int filter_add(char* dev, __u32 parent, char* _prio, char* handle)
 	return 0;
 }
 
+/* Check PID */
+int check_pid(char* pid)
+{
+	char path[16] = {};
+	sprintf(path, "/proc/%s", pid);
+
+	return access(path, R_OK);
+}
+
 int cgroup_init(void)
 {
 	return 0;
@@ -275,13 +294,6 @@ int cgroup_proc_add(char* pid, __u32 clsid)
 {
 	char path[64] = {};
 	FILE *fp = NULL;
-
-	/* Check PID */
-	sprintf(path, "/proc/%s", pid);
-	if(access(path, R_OK) != 0) {
-		printf("PID %s not exist.\n", pid);
-		return -1;
-	}
 
 	/* Make <pid> directory in net_cls directory. */
 	sprintf(path, "%s%s", NET_CLS_PATH, pid);
@@ -361,73 +373,161 @@ int cgroup_proc_del(char* pid)
 	return 0;
 }
 
-int ktc_proc_insert()
+int ktc_proc_insert(char* dev, char* pid, char* rate, char* ceil, char* gurantee, char* max)
 {
-	//check pid exist
+	__u32 clsid;
+	__u64 res_gurantee;
 
-	//__u32 clsinfo_check_pid(char* pid); exist = 1, not = 0
+	if(check_pid(pid))
+	{
+		printf("PID %s is not running.", pid);
+		return -1;
+	}
 
-	//__u32 clsinfo_create_clsid(void); return clsid
+	if(clsinfo_check_pid(pid) > 0)
+	{
+		printf("PID %s is already exist in list.", pid);
+		return -1;
+	}
 
-	//class_modify() <- add
+	clsid = clsinfo_create_clsid();
 
-	//cgroup_proc_add(pid, clsid);
+	cls_modify(dev, 0x010000, clsid, rate, ceil, KTC_CREATE_CLASS, 0);
 
-	//__u64 clsinfo_pid_add(char* pid, __u32 clsid, rate, ceil, gurantee) fail < 0, success = res gurantee
+	cgroup_proc_add(pid, clsid);
 
-	//class_modify(gurantee) <- edit default
+	res_gurantee = clsinfo_pid_add(pid, clsid, rate, ceil, gurantee); //fail < 0, success = res gurantee
+
+	cls_modify(dev, 0x010000, 0x010001, 0, max, KTC_CHANGE_DEFUALT, res_gurantee);
+
+	return 0;
 }
 
-int ktc_proc_modify
+int ktc_proc_modify(char* dev, char* pid, char* rate, char* ceil, char* gurantee, char* max)
 {
-	//check pid exist
+	__u32 clsid;
+	__u64 res_gurantee;
 
-	//__u32 clsinfo_check_pid(char* pid); exist = clsid, not ex = 0
+	if(check_pid(pid))
+	{
+		printf("PID %s is not running.", pid);
+		return -1;
+	}
 
-	//class_modify() <- change
+	if( (clsid = clsinfo_check_pid(pid)) == 0)
+	{
+		printf("PID %s is not exist in list.", pid);
+		return -1;
+	}
 
-	//cgroup_proc_add
+	cls_modify(dev, 0x010000, clsid, rate, ceil, KTC_CHANGE_CLASS, 0);
 
-	//__u64 clsinfo_pid_change(char* pid, __u32 clsid, rate, ceil, gurantee)  fail < 0, success = res gurantee
+	res_gurantee = clsinfo_pid_change(pid, clsid, rate, ceil, gurantee);  //fail < 0, success = res gurantee
 
-	//class_modify() <- edit default
+	cls_modify(dev, 0x010000, 0x010001, 0, max, KTC_CHANGE_DEFUALT, res_gurantee);
+
+	return 0;
 }
 
-int ktc_proc_delete
+int ktc_proc_delete(char* dev, char* pid, char* max)
 {
-	//check pid exist
+	__u32 clsid;
+	__u64 res_gurantee;
 
-	//__u32 clsinfo_check_pid(char* pid); exist = clsid, not ex = 0
+	if(check_pid(pid))
+	{
+		printf("PID %s is not running.", pid);
+		return -1;
+	}
 
-	//class_modify() <- delete
+	if( (clsid = clsinfo_check_pid(pid)) == 0)
+	{
+		printf("PID %s is not exist in list.", pid);
+		return -1;
+	}
 
-	//cgroup_proc_delete
+	cls_modify(dev, 0, 0x010001, NULL, NULL, KTC_DELETE_CLASS, 0);
 
-	//__u64 clsinfo_pid_delete(char* pid, __u32 clsid, __64* gurantee) fail < 0, success = res gurantee
+	cgroup_proc_del(pid);
 
-	//class_modify() <- edit default
+	res_gurantee = clsinfo_pid_delete(pid, clsid);  //fail < 0, success = res gurantee
+
+	cls_modify(dev, 0x010000, 0x010001, 0, max, KTC_CHANGE_DEFUALT, res_gurantee);
+
+	return 0;
 }
-
 
 int main(int argc, char** argv)
 {
-	int sel;
+	char dev[16] = {};
+	char link_speed[16] = {};
+	char cmd[16] = {};
+	char pid[16] = {};
+	char rate[16] = {};
+	char ceil[16] = {};
+	char gurantee[16] = {};
 
 	if(access("/", R_OK | W_OK) != 0) {
 		printf("Must run as root.\n");
 		return -1;
 	}
 
-	if(argc < 2)
+	if(argc != 5)
 	{
-		printf("Need to input argument.\n");
+		printf("Usage: ktc dev [DEVICE NAME] max [MAX LINK SPEED]\n");
 		return -1;
 	}
 
+	argc--;
+	argv++;
+
+	while(argc > 0)
+	{
+		if(strcmp(*argv, "dev") == 0)
+		{
+			argc--;
+			argv++;
+			strncpy(dev, *argv, sizeof(dev)-1);
+		}
+		else if(strcmp(*argv, "max") == 0)
+		{
+			argc--;	
+			argv++;
+			strncpy(link_speed, *argv, sizeof(dev)-1);
+		}
+		else
+		{
+			printf("Usage: ktc dev [DEVICE NAME] max [MAX LINK SPEED]\n");
+			return -1;
+		}
+		argc--;
+		argv++;
+	}
+
 	cgroup_init();
+	qdisc_init("wlp2s0", 0x010000, 0x1);
+	cls_modify(dev, 0x010000, 0x010001, link_speed, link_speed, KTC_CREATE_CLASS, 0);
+	filter_add("wlp2s0", 0x010000, "10", "1:");
+	clsinfo_init(0x010000, 0x010001, link_speed, 0, 0);
 
-	sel = atoi(argv[1]);
+	while(1)
+	{
+		scanf("%s %s %s %s %s", cmd, pid, rate, ceil, gurantee);
+		if(strcmp(cmd, "add") == 0)
+		{
+			ktc_proc_insert(dev, pid, rate, ceil, gurantee, link_speed);
+		}
+		else if(strcmp(cmd, "change") == 0)
+		{
+			ktc_proc_modify(dev, pid, rate, ceil, gurantee, link_speed);
+		}
+		else if(strcmp(cmd, "delete") == 0)
+		{
+			ktc_proc_delete(dev, pid, link_speed);
+		}
+	}
 
+/*
 	while(sel != 0) {
 		switch(sel)
 		{
@@ -458,6 +558,7 @@ int main(int argc, char** argv)
 		}
 		scanf("%d", &sel);
 	}
+*/
 	
 	return 0;
 }

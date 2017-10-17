@@ -47,7 +47,7 @@ void clsinfo_init(__u32 parent, __u32 defid, char* total, __u32 rate, __u32 ceil
 {
 	INIT_LIST_HEAD(&defcls.list);
 
-	defcls.clsid = defid & parent;
+	defcls.clsid = defid | parent;
 	get_rate64(&basic_total, total);
 	get_rate64(&defcls.rate, total);
 	get_rate64(&defcls.ceil, total);
@@ -58,6 +58,7 @@ void clsinfo_init(__u32 parent, __u32 defid, char* total, __u32 rate, __u32 ceil
 	clsids[0] = clsids[1] = 1;
 
 	defcls.pinfos = malloc(sizeof(struct pinfo));
+	INIT_LIST_HEAD(&defcls.list);
 	INIT_LIST_HEAD(&defcls.pinfos->list);
 }
 
@@ -283,14 +284,16 @@ __u64 clsinfo_pid_add(char* pid, __u32 clsid, char* rate, char* ceil, char* gura
 
 	list_add(&tmp->list, &defcls.list);	
 
+/*
 	struct pinfo* pinfo = malloc(sizeof(struct pinfo));
 	memset(pinfo->pid, 0, 8);
 	strncpy(pinfo->pid, pid, strlen(pid));
 	pinfo->gurantee = tmp->gurantee;
 
 	list_add(&pinfo->list, &tmp->pinfos->list);
-
+*/
 	defcls.gurantee -= tmp->gurantee;
+
 
 	return defcls.gurantee;	
 }
