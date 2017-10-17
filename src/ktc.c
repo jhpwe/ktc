@@ -1,5 +1,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include "tc_core.h"
 #include "libnetlink.h"
@@ -274,54 +275,65 @@ int cgroup_init(void)
 
 int cgroup_proc_add(char* pid, __u32 clsid)
 {
-	char cmd[64] = {};
-	char path[32] = NET_CLS_PATH;
+	char path[64] = {};
+	FILE *fp = NULL;
 
-	sprintf(path, "%s%s", path, pid);
-	sprintf(cmd, "mkdir %s > /dev/null 2> /dev/null", path);
-	system(cmd);
-
-	if(access(path, R_OK | W_OK) != 0) {
-		printf("Failed to add process directory in cgroup.\n");
+	/* Make <pid> directory in net_cls directory. */
+	sprintf(path, "%s%s", NET_CLS_PATH, pid);
+	if(mkdir(path, 0755) != 0)
+	{
+		printf("Failed to make process directory in cgroup.\n");
 		return -1;
 	}
 
-	for(int i = 0; i < 64; i++)
+	/* Open <pid>/cgroup.proc file. */
+	sprintf(path, "%s%s", path, "/cgroup.procs");
+	if( (fp = fopen(path, "r+")) == NULL)
 	{
-		cmd[i] = '\0';
+		printf("Failed to open procs file.\n");
+		return -1;
 	}
-	sprintf(cmd, "echo %s > %s/cgroup.procs",pid, path);
-	system(cmd);
 
-	for(int i = 0; i < 64; i++)
+	/* Add <pid> in <pid>/cgroup.procs file. */
+	if(fprintf(fp, "%s", pid) != 0)
 	{
-		cmd[i] = '\0';
+		printf("Failed to add PID in %s/cgroup.procs\n", pid);
+		fclose(fp);
+		return -1;
 	}
-	sprintf(cmd, "echo 0x%x > %s/net_cls.classid", clsid, path);
-	system(cmd);
-
-	clsinfo_add_pid(clsid, pid);
+	fclose(fp);
 
 	return 0;
 }
 
 int cgroup_proc_del(char* pid)
 {
-	char cmd[64] = {};
-	char path[32] = NET_CLS_PATH;
+	char path[64] = {};
+	FILE *fp = NULL;
 
-	sprintf(cmd, "echo %s > %scgroup.procs",pid, path);
-	system(cmd);
-	
-	for(int i = 0; i < 64; i++)
+	/* Open net_cls/cgroup.procs file. */
+	sprintf(path, "%s%s", NET_CLS_PATH, "cgroup.procs");
+	if( (fp = fopen(path, "r+")) == NULL)
 	{
-		cmd[i] = '\0';
+		printf("Failed to open procs file.\n");
+		return -1;
 	}
-	sprintf(path, "%s%s", path, pid);
-	sprintf(cmd, "rmdir %s > /dev/null 2> /dev/null", path);
-	system(cmd);
 
-	if(access(path, R_OK | W_OK) == 0) {
+	fseek(fp, 0L, SEEK_END);
+	
+	/* Add <pid> in net_cls/cgroup.procs file. */
+	if(fprintf(fp, "\n%s", pid) != 0)
+	{
+		printf("Failed to add PID in net_cls/cgroup.procs\n");
+		fclose(fp);
+		return -1;
+	}
+	fclose(fp);
+	
+	/* Remove <pid> directory in net_cls directory. */
+	sprintf(path, "%s%s", NET_CLS_PATH, pid);
+	if(rmdir(path) != 0)
+	{
 		printf("Failed to remove process directory in cgroup.\n");
 		return -1;
 	}
@@ -340,7 +352,8 @@ int main(int argc, char** argv)
 
 	if(argc < 2)
 	{
-		printf("need to input argument.\n");
+		printf("Need to input argument.\n");
+		return -1;
 	}
 
 	sel = atoi(argv[1]);
@@ -367,10 +380,10 @@ int main(int argc, char** argv)
 				cls_modify("wlp2s0", 0, 0x010001, NULL, NULL, KTC_DELETE_CLASS);
 				break;
 			case 6:
-				cgroup_proc_add("2357", 0x010001);
+				cgroup_proc_add("2075", 0x010001);
 				break;
 			case 7:
-				cgroup_proc_del("2357");
+				cgroup_proc_del("2075");
 				break;
 			case 8:
 				clsinfo_show();
