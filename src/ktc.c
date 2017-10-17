@@ -278,26 +278,50 @@ int cgroup_proc_add(char* pid, __u32 clsid)
 	char path[64] = {};
 	FILE *fp = NULL;
 
+	/* Check PID */
+	sprintf(path, "/proc/%s", pid);
+	if(access(path, R_OK) != 0) {
+		printf("PID %s not exist.\n", pid);
+		return -1;
+	}
+
 	/* Make <pid> directory in net_cls directory. */
 	sprintf(path, "%s%s", NET_CLS_PATH, pid);
 	if(mkdir(path, 0755) != 0)
 	{
-		printf("Failed to make process directory in cgroup.\n");
+		printf("Failed to make %s directory.\n", path);
 		return -1;
 	}
 
-	/* Open <pid>/cgroup.proc file. */
+	/* Open <pid>/cgroup.procs file. */
 	sprintf(path, "%s%s", path, "/cgroup.procs");
-	if( (fp = fopen(path, "r+")) == NULL)
+	if( (fp = fopen(path, "a")) == NULL)
 	{
-		printf("Failed to open procs file.\n");
+		printf("Failed to open %s.\n", path);
 		return -1;
 	}
 
 	/* Add <pid> in <pid>/cgroup.procs file. */
-	if(fprintf(fp, "%s", pid) != 0)
+	if(fprintf(fp, "%s", pid) < 0)
 	{
-		printf("Failed to add PID in %s/cgroup.procs\n", pid);
+		printf("Failed to add %s in %s.\n", pid, path);
+		fclose(fp);
+		return -1;
+	}
+	fclose(fp);
+
+	/* Open <pid>/net_cls.classid */
+	sprintf(path, "%s%s%s", NET_CLS_PATH, pid, "/net_cls.classid");
+	if( (fp = fopen(path, "a")) == NULL)
+	{
+		printf("Failed to open %s.\n", path);
+		return -1;
+	}
+
+	/* Add <clsid> in <pid>/net_cls.classid file. */
+	if(fprintf(fp, "0x%x", clsid) < 0)
+	{
+		printf("Failed to add 0x%x in %s.\n", clsid, path);
 		fclose(fp);
 		return -1;
 	}
@@ -313,18 +337,16 @@ int cgroup_proc_del(char* pid)
 
 	/* Open net_cls/cgroup.procs file. */
 	sprintf(path, "%s%s", NET_CLS_PATH, "cgroup.procs");
-	if( (fp = fopen(path, "r+")) == NULL)
+	if( (fp = fopen(path, "a")) == NULL)
 	{
-		printf("Failed to open procs file.\n");
+		printf("Failed to open %s.\n", path);
 		return -1;
 	}
-
-	fseek(fp, 0L, SEEK_END);
 	
 	/* Add <pid> in net_cls/cgroup.procs file. */
-	if(fprintf(fp, "\n%s", pid) != 0)
+	if(fprintf(fp, "\n%s", pid) < 0)
 	{
-		printf("Failed to add PID in net_cls/cgroup.procs\n");
+		printf("Failed to add %s in %s.\n", pid, path);
 		fclose(fp);
 		return -1;
 	}
@@ -334,7 +356,7 @@ int cgroup_proc_del(char* pid)
 	sprintf(path, "%s%s", NET_CLS_PATH, pid);
 	if(rmdir(path) != 0)
 	{
-		printf("Failed to remove process directory in cgroup.\n");
+		printf("Failed to remove %s directory.\n", path);
 		return -1;
 	}
 
@@ -380,10 +402,10 @@ int main(int argc, char** argv)
 				cls_modify("wlp2s0", 0, 0x010001, NULL, NULL, KTC_DELETE_CLASS);
 				break;
 			case 6:
-				cgroup_proc_add("2075", 0x010001);
+				cgroup_proc_add("1030", 0x010001);
 				break;
 			case 7:
-				cgroup_proc_del("2075");
+				cgroup_proc_del("1030");
 				break;
 			case 8:
 				clsinfo_show();
