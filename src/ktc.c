@@ -373,10 +373,10 @@ int cgroup_proc_del(char* pid)
 	return 0;
 }
 
-int ktc_proc_insert(char* dev, char* pid, char* rate, char* ceil, char* gurantee, char* max)
+int ktc_proc_insert(char* dev, char* pid, char* low, char* high, char* link_speed)
 {
 	__u32 clsid;
-	__u64 res_gurantee;
+	__u64 def_rate;
 
 	if(check_pid(pid))
 	{
@@ -392,21 +392,25 @@ int ktc_proc_insert(char* dev, char* pid, char* rate, char* ceil, char* gurantee
 
 	clsid = clsinfo_create_clsid();
 
-	cls_modify(dev, 0x010000, clsid, rate, ceil, KTC_CREATE_CLASS, 0);
+	if( (def_rate = clsinfo_pid_add(pid, clsid, low, high) ) < 0 ) //fail < 0, success = res gurantee
+	{
+		printf("total rate over the max link speed\n");
+		return -1;
+	}
 
 	cgroup_proc_add(pid, clsid);
 
-	res_gurantee = clsinfo_pid_add(pid, clsid, rate, ceil, gurantee); //fail < 0, success = res gurantee
+	cls_modify(dev, 0x010000, clsid, low, high, KTC_CREATE_CLASS, 0);
 
-	cls_modify(dev, 0x010000, 0x010001, 0, max, KTC_CHANGE_DEFUALT, res_gurantee);
+	cls_modify(dev, 0x010000, 0x010001, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
 
 	return 0;
 }
 
-int ktc_proc_modify(char* dev, char* pid, char* rate, char* ceil, char* gurantee, char* max)
+int ktc_proc_change(char* dev, char* pid, char* low, char* high, char* link_speed)
 {
 	__u32 clsid;
-	__u64 res_gurantee;
+	__u64 def_rate;
 
 	if(check_pid(pid))
 	{
@@ -420,24 +424,29 @@ int ktc_proc_modify(char* dev, char* pid, char* rate, char* ceil, char* gurantee
 		return -1;
 	}
 
-	cls_modify(dev, 0x010000, clsid, rate, ceil, KTC_CHANGE_CLASS, 0);
+	if( (def_rate = clsinfo_pid_add(pid, clsid, low, high) ) < 0 ) //fail < 0, success = res gurantee
+	{
+		printf("total rate over the max link speed\n");
+		return -1;
+	}
 
-	res_gurantee = clsinfo_pid_change(pid, clsid, rate, ceil, gurantee);  //fail < 0, success = res gurantee
+	cls_modify(dev, 0x010000, clsid, low, high, KTC_CHANGE_CLASS, 0);
 
-	cls_modify(dev, 0x010000, 0x010001, 0, max, KTC_CHANGE_DEFUALT, res_gurantee);
+	cls_modify(dev, 0x010000, 0x010001, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
 
 	return 0;
 }
 
-int ktc_proc_delete(char* dev, char* pid, char* max)
+int ktc_proc_delete(char* dev, char* pid, char* link_speed)
 {
 	__u32 clsid;
-	__u64 res_gurantee;
+	__u64 def_rate;
 
 	if(check_pid(pid))
 	{
-		printf("PID %s is not running.", pid);
-		return -1;
+		printf("PID %s is not running.\n", pid);
+		printf("Force delete in list.\n");
+	//	return -1;
 	}
 
 	if( (clsid = clsinfo_check_pid(pid)) == 0)
@@ -446,15 +455,24 @@ int ktc_proc_delete(char* dev, char* pid, char* max)
 		return -1;
 	}
 
-	cls_modify(dev, 0, clsid, NULL, NULL, KTC_DELETE_CLASS, 0);
+	if( (def_rate = clsinfo_pid_delete(pid) ) < 0 ) //fail < 0, success = res gurantee
+	{
+		printf("Something wrong.\n");
+		return -1;
+	}
 
 	cgroup_proc_del(pid);
 
-	res_gurantee = clsinfo_pid_delete(pid, clsid);  //fail < 0, success = res gurantee
+	cls_modify(dev, 0, clsid, NULL, NULL, KTC_DELETE_CLASS, 0);
 
-	cls_modify(dev, 0x010000, 0x010001, 0, max, KTC_CHANGE_DEFUALT, res_gurantee);
+	cls_modify(dev, 0x010000, 0x010001, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
 
 	return 0;
+}
+
+void usage(void)
+{
+	printf("Usage: ktc dev [DEVICE NAME] link [MAX LINK SPEED]\n");
 }
 
 int main(int argc, char** argv)
@@ -463,9 +481,8 @@ int main(int argc, char** argv)
 	char link_speed[16] = {};
 	char cmd[16] = {};
 	char pid[16] = {};
-	char rate[16] = {};
-	char ceil[16] = {};
-	char gurantee[16] = {};
+	char low[16] = {};
+	char high[16] = {};
 
 	if(access("/", R_OK | W_OK) != 0) {
 		printf("Must run as root.\n");
@@ -474,7 +491,7 @@ int main(int argc, char** argv)
 
 	if(argc != 5)
 	{
-		printf("Usage: ktc dev [DEVICE NAME] max [MAX LINK SPEED]\n");
+		usage();
 		return -1;
 	}
 
@@ -489,7 +506,7 @@ int main(int argc, char** argv)
 			argv++;
 			strncpy(dev, *argv, sizeof(dev)-1);
 		}
-		else if(strcmp(*argv, "max") == 0)
+		else if(strcmp(*argv, "link") == 0)
 		{
 			argc--;	
 			argv++;
@@ -497,7 +514,8 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			printf("Usage: ktc dev [DEVICE NAME] max [MAX LINK SPEED]\n");
+			printf("Unknown argument %s.\n", *argv);
+			usage();
 			return -1;
 		}
 		argc--;
@@ -508,18 +526,18 @@ int main(int argc, char** argv)
 	qdisc_init(dev, 0x010000, 0x1);
 	cls_modify(dev, 0x010000, 0x010001, link_speed, link_speed, KTC_CREATE_CLASS, 0);
 	filter_add(dev, 0x010000, "10", "1:");
-	clsinfo_init(0x010000, 0x010001, link_speed, 0, 0);
+	clsinfo_init(0x010000, 0x010001, link_speed);
 
 	while(1)
 	{
-		scanf("%s %s %s %s %s", cmd, pid, rate, ceil, gurantee);
+		scanf("%s %s %s %s", cmd, pid, low, high);
 		if(strcmp(cmd, "add") == 0)
 		{
-			ktc_proc_insert(dev, pid, rate, ceil, gurantee, link_speed);
+			ktc_proc_insert(dev, pid, low, high, link_speed);
 		}
 		else if(strcmp(cmd, "change") == 0)
 		{
-			ktc_proc_modify(dev, pid, rate, ceil, gurantee, link_speed);
+			ktc_proc_change(dev, pid, low, high, link_speed);
 		}
 		else if(strcmp(cmd, "delete") == 0)
 		{
