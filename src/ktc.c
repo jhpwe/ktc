@@ -505,9 +505,9 @@ int main(int argc, char** argv)
 	}
 
 	cgroup_init();
-	qdisc_init("wlp2s0", 0x010000, 0x1);
+	qdisc_init(dev, 0x010000, 0x1);
 	cls_modify(dev, 0x010000, 0x010001, link_speed, link_speed, KTC_CREATE_CLASS, 0);
-	filter_add("wlp2s0", 0x010000, "10", "1:");
+	filter_add(dev, 0x010000, "10", "1:");
 	clsinfo_init(0x010000, 0x010001, link_speed, 0, 0);
 
 	while(1)
