@@ -1,6 +1,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <fcntl.h>
+#include <mqueue.h>
 
 #include "tc_core.h"
 #include "libnetlink.h"
@@ -9,6 +11,7 @@
 #include "gcls.h"
 
 #define NET_CLS_PATH "/sys/fs/cgroup/net_cls/"
+#define KTC_MQ_PATH "/ktc_mq"
 
 enum ktc_cls_flags {
 	KTC_CREATE_CLASS,
@@ -17,11 +20,19 @@ enum ktc_cls_flags {
 	KTC_CHANGE_DEFUALT
 };
 
-struct req_s 
+struct req_s
 {
 	struct nlmsghdr	n;
 	struct tcmsg	t;
 	char			buf[TCA_BUF_MAX];
+};
+
+struct ktc_mq_s
+{
+  char cmd[8];
+  char pid[8];
+  char upper[16];
+  char lower[16];
 };
 
 //static __u32 parent = 0x010000;
@@ -35,7 +46,7 @@ int qdisc_init(char* dev, __u32 parent, __u32 defcls)
 	struct rtnl_handle rth;
 	struct req_s req;
 	struct rtattr *tail;
-	
+
 	struct tc_htb_glob opt = {
 	.rate2quantum = 10,
 	.version = 3,
@@ -93,7 +104,7 @@ int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, uns
 	struct rtnl_handle rth;
 	struct req_s req;
 	struct rtattr *tail;
-	
+
 	struct tc_htb_opt opt = {};
 	__u64 ceil64 = 0, rate64 = 0;
 	unsigned buffer = 0, cbuffer = 0;
@@ -127,11 +138,11 @@ int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, uns
 			req.n.nlmsg_type = RTM_NEWTCLASS;
 			req.t.tcm_parent = parent; // "parent 1:" parent qidsc handle number
 			break;
-		case KTC_DELETE_CLASS : 
+		case KTC_DELETE_CLASS :
 			req.n.nlmsg_flags = NLM_F_REQUEST | 0;
 			req.n.nlmsg_type = RTM_DELTCLASS;
 			break;
-		case KTC_CHANGE_DEFUALT : 
+		case KTC_CHANGE_DEFUALT :
 			req.n.nlmsg_flags = NLM_F_REQUEST | 0;
 			req.n.nlmsg_type = RTM_NEWTCLASS;
 			req.t.tcm_parent = parent; // "parent 1:" parent qidsc handle number
@@ -147,7 +158,7 @@ int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, uns
 			get_rate64(&rate64, rate);	// "rate ##mbps"
 		else
 			rate64 = res_gurantee;
-		
+
 		get_rate64(&ceil64, ceil);	// "ceil ##mbps"
 		opt.rate.rate = (rate64 >= (1ULL << 32)) ? ~0U : rate64;
 		opt.ceil.rate = (ceil64 >= (1ULL << 32)) ? ~0U : ceil64;
@@ -163,7 +174,7 @@ int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, uns
 		opt.ceil.mpu = mpu;
 		opt.rate.mpu = mpu;
 
-		if (tc_calc_rtable(&opt.rate, rtab, cell_log, mtu, linklayer) < 0) {	
+		if (tc_calc_rtable(&opt.rate, rtab, cell_log, mtu, linklayer) < 0) {
 			fprintf(stderr, "htb: failed to calculate rate table.\n");
 			return -1;
 		}
@@ -352,7 +363,7 @@ int cgroup_proc_del(char* pid)
 		printf("Failed to open %s.\n", path);
 		return -1;
 	}
-	
+
 	/* Add <pid> in net_cls/cgroup.procs file. */
 	if(fprintf(fp, "\n%s", pid) < 0)
 	{
@@ -361,7 +372,7 @@ int cgroup_proc_del(char* pid)
 		return -1;
 	}
 	fclose(fp);
-	
+
 	/* Remove <pid> directory in net_cls directory. */
 	sprintf(path, "%s%s", NET_CLS_PATH, pid);
 	if(rmdir(path) != 0)
@@ -402,9 +413,9 @@ int ktc_proc_insert(char* dev, char* pid, char* low, char* high, char* link_spee
 
 	cgroup_proc_add(pid, clsid);
 
-	cls_modify(dev, 0x010000, clsid, low, high, KTC_CREATE_CLASS, 0);
+	cls_modify(dev, 0x010001, clsid, low, high, KTC_CREATE_CLASS, 0);
 
-	cls_modify(dev, 0x010000, 0x010001, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
+	cls_modify(dev, 0x010001, 0x010002, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
 
 	return 0;
 }
@@ -432,9 +443,9 @@ int ktc_proc_change(char* dev, char* pid, char* low, char* high, char* link_spee
 		return -1;
 	}
 
-	cls_modify(dev, 0x010000, clsid, low, high, KTC_CHANGE_CLASS, 0);
+	cls_modify(dev, 0x010001, clsid, low, high, KTC_CHANGE_CLASS, 0);
 
-	cls_modify(dev, 0x010000, 0x010001, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
+	cls_modify(dev, 0x010001, 0x010002, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
 
 	return 0;
 }
@@ -467,8 +478,36 @@ int ktc_proc_delete(char* dev, char* pid, char* link_speed)
 
 	cls_modify(dev, 0, clsid, NULL, NULL, KTC_DELETE_CLASS, 0);
 
-	cls_modify(dev, 0x010000, 0x010001, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
+	cls_modify(dev, 0x010001, 0x010002, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
 
+	return 0;
+}
+
+mqd_t msgq_init(struct mq_attr* attr)
+{
+	mqd_t mfd;
+
+	attr->mq_maxmsg = 10;
+	attr->mq_msgsize = sizeof(struct ktc_mq_s);
+
+	mfd = mq_open(KTC_MQ_PATH, O_RDWR | O_CREAT,  0666, attr);
+	if (mfd == -1)
+	{
+		return -1;
+	}
+	return mfd;
+}
+
+int msgq_get(mqd_t mfd, struct mq_attr* attr, struct ktc_mq_s* kmq)
+{
+	if((mq_receive(mfd, (char *)kmq, attr->mq_msgsize,NULL)) == -1)
+	{
+		return -1;
+	}
+	else
+	{
+		printf("received : %s %s\n",kmq->cmd, kmq->pid);
+	}
 	return 0;
 }
 
@@ -481,10 +520,10 @@ int main(int argc, char** argv)
 {
 	char dev[16] = {};
 	char link_speed[16] = {};
-	char cmd[16] = {};
-	char pid[16] = {};
-	char low[16] = {};
-	char high[16] = {};
+
+	mqd_t mfd;
+	struct mq_attr attr;
+	struct ktc_mq_s kmq;
 
 	if(access("/", R_OK | W_OK) != 0) {
 		printf("Must run as root.\n");
@@ -510,7 +549,7 @@ int main(int argc, char** argv)
 		}
 		else if(strcmp(*argv, "link") == 0)
 		{
-			argc--;	
+			argc--;
 			argv++;
 			strncpy(link_speed, *argv, sizeof(dev)-1);
 		}
@@ -525,27 +564,44 @@ int main(int argc, char** argv)
 	}
 
 	cgroup_init();
-	qdisc_init(dev, 0x010000, 0x1);
+	qdisc_init(dev, 0x010000, 0x2);
+
+	/* root class */
 	cls_modify(dev, 0x010000, 0x010001, link_speed, link_speed, KTC_CREATE_CLASS, 0);
+	/* default class */
+	cls_modify(dev, 0x010001, 0x010002, link_speed, link_speed, KTC_CREATE_CLASS, 0);
+
 	filter_add(dev, 0x010000, "10", "1:");
-	gcls_init(0x010000, 0x010001, link_speed);
+	gcls_init(0x010000, 0x010002, link_speed);
+
+	if( (mfd = msgq_init(&attr)) < 0)
+	{
+		printf("msgq open error\n");
+		return -1;
+	}
 
 	while(1)
 	{
-		scanf("%s %s %s %s", cmd, pid, low, high);
-		if(strcmp(cmd, "add") == 0)
+		if(msgq_get(mfd, &attr, &kmq) < 0)
 		{
-			ktc_proc_insert(dev, pid, low, high, link_speed);
+			printf("msgq get error\n");
+			return -1;
 		}
-		else if(strcmp(cmd, "change") == 0)
+
+		if(strcmp(kmq.cmd, "add") == 0)
 		{
-			ktc_proc_change(dev, pid, low, high, link_speed);
+			ktc_proc_insert(dev, kmq.pid, kmq.lower, kmq.upper, link_speed);
 		}
-		else if(strcmp(cmd, "delete") == 0)
+		else if(strcmp(kmq.cmd, "change") == 0)
 		{
-			ktc_proc_delete(dev, pid, link_speed);
+			ktc_proc_change(dev, kmq.pid, kmq.lower, kmq.upper, link_speed);
+		}
+		else if(strcmp(kmq.cmd, "delete") == 0)
+		{
+			ktc_proc_delete(dev, kmq.pid, link_speed);
 		}
 	}
+
 
 /*
 	while(sel != 0) {
@@ -579,7 +635,6 @@ int main(int argc, char** argv)
 		scanf("%d", &sel);
 	}
 */
-	
+
 	return 0;
 }
-
