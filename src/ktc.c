@@ -6,7 +6,7 @@
 #include "libnetlink.h"
 #include "ll_map.h"
 #include "utils.h"
-#include "gurantee.h"
+#include "gcls.h"
 
 #define NET_CLS_PATH "/sys/fs/cgroup/net_cls/"
 
@@ -384,15 +384,15 @@ int ktc_proc_insert(char* dev, char* pid, char* low, char* high, char* link_spee
 		return -1;
 	}
 
-	if(clsinfo_check_pid(pid) > 0)
+	if(gcls_check_pid(pid) > 0)
 	{
 		printf("PID %s is already exist in list.", pid);
 		return -1;
 	}
 
-	clsid = clsinfo_create_clsid();
+	clsid = gcls_empty_id();
 
-	if( (def_rate = clsinfo_pid_add(pid, clsid, low, high) ) < 0 ) //fail < 0, success = res gurantee
+	if( (def_rate = gcls_add(clsid, pid, low, high) ) < 0 ) //fail < 0, success = res gurantee
 	{
 		printf("total rate over the max link speed\n");
 		return -1;
@@ -418,13 +418,13 @@ int ktc_proc_change(char* dev, char* pid, char* low, char* high, char* link_spee
 		return -1;
 	}
 
-	if( (clsid = clsinfo_check_pid(pid)) == 0)
+	if( (clsid = gcls_check_pid(pid)) == 0)
 	{
 		printf("PID %s is not exist in list.", pid);
 		return -1;
 	}
 
-	if( (def_rate = clsinfo_pid_add(pid, clsid, low, high) ) < 0 ) //fail < 0, success = res gurantee
+	if( (def_rate = gcls_add(clsid, pid, low, high) ) < 0 ) //fail < 0, success = res gurantee
 	{
 		printf("total rate over the max link speed\n");
 		return -1;
@@ -449,13 +449,13 @@ int ktc_proc_delete(char* dev, char* pid, char* link_speed)
 	//	return -1;
 	}
 
-	if( (clsid = clsinfo_check_pid(pid)) == 0)
+	if( (clsid = gcls_check_pid(pid)) == 0)
 	{
 		printf("PID %s is not exist in list.", pid);
 		return -1;
 	}
 
-	if( (def_rate = clsinfo_pid_delete(pid) ) < 0 ) //fail < 0, success = res gurantee
+	if( (def_rate = gcls_delete_pid(pid) ) < 0 ) //fail < 0, success = res gurantee
 	{
 		printf("Something wrong.\n");
 		return -1;
@@ -526,7 +526,7 @@ int main(int argc, char** argv)
 	qdisc_init(dev, 0x010000, 0x1);
 	cls_modify(dev, 0x010000, 0x010001, link_speed, link_speed, KTC_CREATE_CLASS, 0);
 	filter_add(dev, 0x010000, "10", "1:");
-	clsinfo_init(0x010000, 0x010001, link_speed);
+	gcls_init(0x010000, 0x010001, link_speed);
 
 	while(1)
 	{
