@@ -514,7 +514,7 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			printf("Unknown argument %s.\n", *argv);
+			printf("Unknown argument : %s\n", *argv);
 			usage();
 			return -1;
 		}
