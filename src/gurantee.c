@@ -115,8 +115,6 @@ void clsinfo_destroy_cls(struct clsinfo* clsinfo)
 }
 
 int clsinfo_add_pid(__u32 clsid, char* pid) 
-		p_pos = NULL;
-		p_head = &cls_pos->pinfos->list;
 {
 	struct clsinfo* target = NULL;
 	struct clsinfo* pos = NULL;
