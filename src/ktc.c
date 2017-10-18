@@ -446,7 +446,7 @@ int ktc_proc_delete(char* dev, char* pid, char* max)
 		return -1;
 	}
 
-	cls_modify(dev, 0, 0x010001, NULL, NULL, KTC_DELETE_CLASS, 0);
+	cls_modify(dev, 0, clsid, NULL, NULL, KTC_DELETE_CLASS, 0);
 
 	cgroup_proc_del(pid);
 

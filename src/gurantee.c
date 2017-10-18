@@ -115,6 +115,8 @@ void clsinfo_destroy_cls(struct clsinfo* clsinfo)
 }
 
 int clsinfo_add_pid(__u32 clsid, char* pid) 
+		p_pos = NULL;
+		p_head = &cls_pos->pinfos->list;
 {
 	struct clsinfo* target = NULL;
 	struct clsinfo* pos = NULL;
@@ -242,16 +244,12 @@ __u32 clsinfo_check_pid(char* pid) {
 	p_pos = NULL;
 	cls_pos = NULL;
 	cls_head = &defcls.list;
+	printf("target: %s\n", pid);
 	list_for_each_entry(cls_pos, cls_head, list) {
-		p_pos = NULL;
-		p_head = &cls_pos->pinfos->list;
-
-		list_for_each_entry(p_pos, p_head, list) {
-			if(strcmp(p_pos->pid, pid) == 0) {
-				return cls_pos->clsid;			
-				break;
-			}
-		}	
+		printf("clsid: 0x%x / pid: 0x%s\n", cls_pos->clsid, cls_pos->pinfos->pid);
+		if(strcmp(cls_pos->pinfos->pid, pid) == 0) {
+			return cls_pos->clsid;
+		}
 	}
 
 	return 0;
@@ -284,16 +282,15 @@ __u64 clsinfo_pid_add(char* pid, __u32 clsid, char* rate, char* ceil, char* gura
 
 	list_add(&tmp->list, &defcls.list);	
 
-/*
 	struct pinfo* pinfo = malloc(sizeof(struct pinfo));
 	memset(pinfo->pid, 0, 8);
 	strncpy(pinfo->pid, pid, strlen(pid));
 	pinfo->gurantee = tmp->gurantee;
 
-	list_add(&pinfo->list, &tmp->pinfos->list);
-*/
-	defcls.gurantee -= tmp->gurantee;
+	tmp->pinfos = pinfo;
+	INIT_LIST_HEAD(&tmp->pinfos->list);
 
+	defcls.gurantee -= tmp->gurantee;
 
 	return defcls.gurantee;	
 }
