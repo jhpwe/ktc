@@ -134,16 +134,20 @@ __u64 gcls_add(__u32 clsid, char* pid, char* clow, char* chigh) {
 	return defgcls.low;
 }
 
-__u64 gcls_modify(__u32 clsid, char* pid, __u64 low, __u64 high) {
+__u64 gcls_modify(__u32 clsid, char* pid, char* clow, char* chigh) {
 	struct gcls* target = gcls_get_id(clsid);
 	if(target == NULL)
 		return ULONG_MAX;
+
+	__u64 low, high;
+	get_rate64(&low, clow);
+	get_rate64(&high, chigh);
 
 	if((defgcls.low + target->low) < low) 
 		return ULONG_MAX;
 
 	defgcls.low += target->low;
-	target->low = low;
+	target->low = low;	
 	target->high = high;
 	defgcls.low -= target->low;
 
