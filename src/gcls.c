@@ -50,13 +50,13 @@ void gcls_init(__u32 parent, __u32 defid, char* link_max) {
 	INIT_LIST_HEAD(&defgcls.list);
 
 	empty[0] = 1;
-	empty[defid & 0xff] = 1;
+	empty[1] = 1;
 	for(int i = 1; i < CLSMAX; i++)
 		empty[i] = 0;
 }
 
 __u32 gcls_empty_id() {
-	for(int i = 0; i < CLSMAX; i++) {
+	for(int i = 2; i < CLSMAX; i++) {
 		if(empty[i] == 0) {
 			empty[i] = 1;
 			return root | i;
