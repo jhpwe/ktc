@@ -402,9 +402,9 @@ int ktc_proc_insert(char* dev, char* pid, char* low, char* high, char* link_spee
 
 	cgroup_proc_add(pid, clsid);
 
-	cls_modify(dev, 0x010000, clsid, low, high, KTC_CREATE_CLASS, 0);
+	cls_modify(dev, 0x010001, clsid, low, high, KTC_CREATE_CLASS, 0);
 
-	cls_modify(dev, 0x010000, 0x010001, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
+	cls_modify(dev, 0x010001, 0x010002, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
 
 	return 0;
 }
@@ -432,9 +432,9 @@ int ktc_proc_change(char* dev, char* pid, char* low, char* high, char* link_spee
 		return -1;
 	}
 
-	cls_modify(dev, 0x010000, clsid, low, high, KTC_CHANGE_CLASS, 0);
+	cls_modify(dev, 0x010001, clsid, low, high, KTC_CHANGE_CLASS, 0);
 
-	cls_modify(dev, 0x010000, 0x010001, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
+	cls_modify(dev, 0x010001, 0x010002, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
 
 	return 0;
 }
@@ -467,7 +467,7 @@ int ktc_proc_delete(char* dev, char* pid, char* link_speed)
 
 	cls_modify(dev, 0, clsid, NULL, NULL, KTC_DELETE_CLASS, 0);
 
-	cls_modify(dev, 0x010000, 0x010001, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
+	cls_modify(dev, 0x010001, 0x010002, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
 
 	return 0;
 }
@@ -525,10 +525,15 @@ int main(int argc, char** argv)
 	}
 
 	cgroup_init();
-	qdisc_init(dev, 0x010000, 0x1);
+	qdisc_init(dev, 0x010000, 0x2);
+
+	/* root class */
 	cls_modify(dev, 0x010000, 0x010001, link_speed, link_speed, KTC_CREATE_CLASS, 0);
+	/* default class */
+	cls_modify(dev, 0x010001, 0x010002, link_speed, link_speed, KTC_CREATE_CLASS, 0);
+
 	filter_add(dev, 0x010000, "10", "1:");
-	gcls_init(0x010000, 0x010001, link_speed);
+	gcls_init(0x010000, 0x010002, link_speed);
 
 	while(1)
 	{
