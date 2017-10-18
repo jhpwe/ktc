@@ -117,7 +117,7 @@ __u32 gcls_check_pid(char* pid) {
 	if(target)
 		return target->id;
 	else
-		return -1;
+		return 0;
 }
 
 __u64 gcls_add(__u32 clsid, char* pid, char* clow, char* chigh) {
@@ -127,7 +127,7 @@ __u64 gcls_add(__u32 clsid, char* pid, char* clow, char* chigh) {
 
 	struct gcls* new = gcls_create(clsid, pid, low, high);
 	if(new == NULL)
-		return -1;
+		return ULONG_MAX;
 
 	list_add(&new->list, &defgcls.list);	
 
@@ -137,10 +137,10 @@ __u64 gcls_add(__u32 clsid, char* pid, char* clow, char* chigh) {
 __u64 gcls_modify(__u32 clsid, char* pid, __u64 low, __u64 high) {
 	struct gcls* target = gcls_get_id(clsid);
 	if(target == NULL)
-		return -1;
+		return ULONG_MAX;
 
 	if((defgcls.low + target->low) < low) 
-		return -1;
+		return ULONG_MAX;
 
 	defgcls.low += target->low;
 	target->low = low;
@@ -153,7 +153,7 @@ __u64 gcls_modify(__u32 clsid, char* pid, __u64 low, __u64 high) {
 __u64 gcls_delete_pid(char* pid) {
 	struct gcls* del = gcls_get_pid(pid);	
 	if(del == NULL)
-		return -1;
+		return ULONG_MAX;
 
 	defgcls.low += del->low;
 	list_del(&del->list);
