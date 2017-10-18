@@ -380,19 +380,21 @@ int ktc_proc_insert(char* dev, char* pid, char* low, char* high, char* link_spee
 
 	if(check_pid(pid))
 	{
-		printf("PID %s is not running.", pid);
+		printf("PID %s is not running.\n", pid);
 		return -1;
 	}
 
 	if(gcls_check_pid(pid) > 0)
 	{
-		printf("PID %s is already exist in list.", pid);
+		printf("PID %s is already exist in list.\n", pid);
 		return -1;
 	}
 
 	clsid = gcls_empty_id();
 
-	if( (def_rate = gcls_add(clsid, pid, low, high) ) < 0 ) //fail < 0, success = res gurantee
+	printf("0x%x\n",clsid);
+
+	if( (def_rate = gcls_add(clsid, pid, low, high) ) == ULONG_MAX)
 	{
 		printf("total rate over the max link speed\n");
 		return -1;
@@ -414,17 +416,17 @@ int ktc_proc_change(char* dev, char* pid, char* low, char* high, char* link_spee
 
 	if(check_pid(pid))
 	{
-		printf("PID %s is not running.", pid);
+		printf("PID %s is not running.\n", pid);
 		return -1;
 	}
 
 	if( (clsid = gcls_check_pid(pid)) == 0)
 	{
-		printf("PID %s is not exist in list.", pid);
+		printf("PID %s is not exist in list.\n", pid);
 		return -1;
 	}
 
-	if( (def_rate = gcls_add(clsid, pid, low, high) ) < 0 ) //fail < 0, success = res gurantee
+	if( (def_rate = gcls_modify(clsid, pid, low, high) ) == ULONG_MAX)
 	{
 		printf("total rate over the max link speed\n");
 		return -1;
@@ -451,11 +453,11 @@ int ktc_proc_delete(char* dev, char* pid, char* link_speed)
 
 	if( (clsid = gcls_check_pid(pid)) == 0)
 	{
-		printf("PID %s is not exist in list.", pid);
+		printf("PID %s is not exist in list.\n", pid);
 		return -1;
 	}
 
-	if( (def_rate = gcls_delete_pid(pid) ) < 0 ) //fail < 0, success = res gurantee
+	if( (def_rate = gcls_delete_pid(pid) ) == ULONG_MAX ) //fail < 0, success = res gurantee
 	{
 		printf("Something wrong.\n");
 		return -1;
