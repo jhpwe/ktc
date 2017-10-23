@@ -71,7 +71,7 @@ int ktclog(struct ktc_mq_s* ktc_msg, char* comment)
 	home = getenv("HOME");
 	memset(path, 0, 128);
 	sprintf(path, "%s/ktc_log.txt", home);
-	if((logfile = fopen("/home/pjhubuntu/ktc/log.txt", "a")) < 0 ) 
+	if((logfile = fopen(path, "a")) < 0 ) 
 	{
 		perror("log file ");	
 		exit(0);
@@ -81,6 +81,8 @@ int ktclog(struct ktc_mq_s* ktc_msg, char* comment)
 	if(ktc_msg) fprintf(logfile, "%s from %s bound(%s ~ %s) ", ktc_msg->cmd, ktc_msg->pid, ktc_msg->lower, ktc_msg->upper);
 	if(comment)	fprintf(logfile, "%s", comment);
 	fprintf(logfile, "\n");
+	
+	fclose(logfile);
 
 	return 0;
 }
