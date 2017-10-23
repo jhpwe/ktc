@@ -47,7 +47,7 @@ int main(int argc, char **argv)
   	{
       if(strcmp(*argv, "add") == 0)
   		{
-        if(kmq.cmd == NULL)
+        if(kmq.cmd[0] != 0)
         {
           printf("Duplicate command.\n");
           usage();
@@ -57,7 +57,7 @@ int main(int argc, char **argv)
   		}
       else if(strcmp(*argv, "change") == 0)
   		{
-        if(kmq.cmd == NULL)
+        if(kmq.cmd[0] != 0)
         {
           printf("Duplicate command.\n");
           usage();
@@ -67,7 +67,7 @@ int main(int argc, char **argv)
   		}
       else if(strcmp(*argv, "delete") == 0)
   		{
-        if(kmq.cmd == NULL)
+        if(kmq.cmd[0] != 0)
         {
           printf("Duplicate command.\n");
           usage();
@@ -77,7 +77,7 @@ int main(int argc, char **argv)
   		}
       else if(strcmp(*argv, "quit") == 0)
   		{
-        if(kmq.cmd == NULL)
+        if(kmq.cmd[0] != 0)
         {
           printf("Duplicate command.\n");
           usage();
@@ -113,8 +113,9 @@ int main(int argc, char **argv)
   		argv++;
   	}
 
-    if(kmq.cmd == NULL)
+    if( (strcmp(kmq.cmd, "add") && strcmp(kmq.cmd, "delete") && strcmp(kmq.cmd, "change") && strcmp(kmq.cmd, "quit")) )
     {
+      printf("Unknown Command %s\n", cmd);
       usage();
       return -1;
     }
