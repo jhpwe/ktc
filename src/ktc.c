@@ -3,12 +3,17 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <unistd.h>
 #include <mqueue.h>
+#include <time.h>
 
 #include "gcls.h"
 #include "ktc_tc.h"
 
 #define KTC_MQ_PATH "/ktc_mq"
+#define KTC_LOG_PATH "/home/pjhubuntu/ktc"
 
 struct ktc_mq_s
 {
@@ -41,14 +46,38 @@ int msgq_get(mqd_t mfd, struct mq_attr* attr, struct ktc_mq_s* kmq)
 	}
 	else
 	{
-		printf("received : %s %s\n",kmq->cmd, kmq->pid);
+		//printf("received : %s %s\n",kmq->cmd, kmq->pid);
 	}
 	return 0;
 }
-
 void usage(void)
 {
-	printf("Usage: ktc dev [DEVICE NAME] link [MAX LINK SPEED]\n");
+	//printf("Usage: ktc dev [DEVICE NAME] link [MAX LINK SPEED]\n");
+}
+
+int test_daemon_msg() {
+	
+	return 0;
+}
+
+int ktclog(struct ktc_mq_s* ktc_msg, char* comment) 
+{
+	time_t t = time(NULL);
+	struct tm tm = *localtime(&t);
+	FILE* logfile;
+	if((logfile = fopen("/home/pjhubuntu/ktc/ktc_log.txt", "a")) < 0 ) 
+	{
+		perror("log file ");	
+		exit(0);
+	}
+
+	fprintf(logfile, "%d [%2d-%2d-%2d/%2d:%2d:%2d] ", getpid(), tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+	if(ktc_msg) fprintf(logfile, "%s from %s bound(%s ~ %s) ", ktc_msg->cmd, ktc_msg->pid, ktc_msg->lower, ktc_msg->upper);
+	if(comment)	fprintf(logfile, "%s", comment);
+	fprintf(logfile, "\n");
+	fclose(logfile);
+
+	return 0;
 }
 
 int main(int argc, char** argv)
@@ -71,6 +100,30 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
+	int pid = fork();
+	if(pid < 0) {
+		perror("fork error\n");
+		exit(0);
+	} else if(pid > 0) {	/* Parent kill */
+		//printf("child[%d], parent[%d] kill\n", pid, getpid());
+		exit(0);
+	} else {
+		//printf("process[%d] running\n", getpid());
+	}
+
+	char tmp[32];
+	memset(tmp, 0, 32);
+	sprintf(tmp, "ktc[%d] start", getpid());
+	ktclog(NULL, tmp);
+
+	signal(SIGHUP, SIG_IGN);	/* Ignore SIGHUP(Terminal disconnected) */
+	close(0);	/* close stderr, stdin, stdout */
+	close(1);
+	close(2);
+
+	chdir("/");	/* Move to root */
+	setsid(); /* Make session reader */
+
 	argc--;
 	argv++;
 
@@ -90,8 +143,9 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			printf("Unknown argument : %s\n", *argv);
-			usage();
+			//printf("Unknown argument : %s\n", *argv);
+			ktclog(NULL, "argv error");
+			
 			return -1;
 		}
 		argc--;
@@ -111,29 +165,37 @@ int main(int argc, char** argv)
 
 	if( (mfd = msgq_init(&attr)) < 0)
 	{
-		printf("msgq open error\n");
+		ktclog(NULL, "msgq open error");
 		return -1;
 	}
+
 
 	while(1)
 	{
 		if(msgq_get(mfd, &attr, &kmq) < 0)
 		{
-			printf("msgq get error\n");
 			return -1;
 		}
 
 		if(strcmp(kmq.cmd, "add") == 0)
 		{
 			ktc_proc_insert(dev, kmq.pid, kmq.lower, kmq.upper, link_speed);
+			ktclog(&kmq, NULL);
 		}
 		else if(strcmp(kmq.cmd, "change") == 0)
 		{
 			ktc_proc_change(dev, kmq.pid, kmq.lower, kmq.upper, link_speed);
+			ktclog(&kmq, NULL);
 		}
 		else if(strcmp(kmq.cmd, "delete") == 0)
 		{
 			ktc_proc_delete(dev, kmq.pid, link_speed);
+			ktclog(&kmq, NULL);
+		} 
+		else if(strcmp(kmq.cmd, "quit") == 0) 
+		{
+			ktclog(&kmq, NULL);
+			exit(0);
 		}
 	}
 

@@ -75,6 +75,16 @@ int main(int argc, char **argv)
         }
         strncpy(kmq.cmd, *argv, sizeof(kmq.cmd)-1);
   		}
+      else if(strcmp(*argv, "quit") == 0)
+  		{
+        if(kmq.cmd == NULL)
+        {
+          printf("Duplicate command.\n");
+          usage();
+          return -1;
+        }
+        strncpy(kmq.cmd, *argv, sizeof(kmq.cmd)-1);
+  		}
   		else if(strcmp(*argv, "pid") == 0)
   		{
   			argc--;
