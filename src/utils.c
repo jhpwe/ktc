@@ -2,6 +2,7 @@
 #include <string.h>
 #include <asm/param.h>
 #include <linux/atm.h>
+#include <math.h>
 
 #include "utils.h"
 
@@ -59,7 +60,7 @@ int get_rate64(__u64 *rate, const char *str)
 
 
 /* iprotue2/lib/utils.c */
-int __iproute2_hz_internal; 
+int __iproute2_hz_internal;
 
 int __get_hz(void)
 {
@@ -148,5 +149,70 @@ int get_u16(__u16 *val, const char *arg, int base)
 		return -1;
 
 	*val = res;
+	return 0;
+}
+
+void print_rate(char *buf, int len, __u64 rate)
+{
+	unsigned long kilo = 0 ? 1024 : 1000;
+	const char *str = 0 ? "i" : "";
+	static char *units[5] = {"", "K", "M", "G", "T"};
+	int i;
+
+	rate <<= 3; /* bytes/sec -> bits/sec */
+
+	for (i = 0; i < ARRAY_SIZE(units) - 1; i++)  {
+		if (rate < kilo)
+			break;
+		if (((rate % kilo) != 0) && rate < 1000*kilo)
+			break;
+		rate /= kilo;
+	}
+
+	snprintf(buf, len, "%.0f%s%sbit", (double)rate, units[i], str);
+}
+
+char *sprint_rate(__u64 rate, char *buf)
+{
+	print_rate(buf, SPRINT_BSIZE-1, rate);
+	return buf;
+}
+
+void print_size(char *buf, int len, __u32 sz)
+{
+	double tmp = sz;
+
+	if (sz >= 1024*1024 && fabs(1024*1024*rint(tmp/(1024*1024)) - sz) < 1024)
+		snprintf(buf, len, "%gMb", rint(tmp/(1024*1024)));
+	else if (sz >= 1024 && fabs(1024*rint(tmp/1024) - sz) < 16)
+		snprintf(buf, len, "%gKb", rint(tmp/1024));
+	else
+		snprintf(buf, len, "%ub", sz);
+}
+
+char *sprint_size(__u32 size, char *buf)
+{
+	print_size(buf, SPRINT_BSIZE-1, size);
+	return buf;
+}
+
+int print_tc_classid(char *buf, int blen, __u32 h)
+{
+	SPRINT_BUF(handle) = {};
+	int hlen = SPRINT_BSIZE - 1;
+
+	if (h == TC_H_ROOT)
+		sprintf(handle, "root");
+	else if (h == TC_H_UNSPEC)
+		snprintf(handle, hlen, "none");
+	else if (TC_H_MAJ(h) == 0)
+		snprintf(handle, hlen, ":%x", TC_H_MIN(h));
+	else if (TC_H_MIN(h) == 0)
+		snprintf(handle, hlen, "%x:", TC_H_MAJ(h) >> 16);
+	else
+		snprintf(handle, hlen, "%x:%x", TC_H_MAJ(h) >> 16, TC_H_MIN(h));
+
+		snprintf(buf, blen, "%s", handle);
+
 	return 0;
 }

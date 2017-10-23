@@ -13,6 +13,7 @@ enum ktc_cls_flags {
 
 int qdisc_init(char* dev, __u32 parent, __u32 defcls);
 int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, unsigned int cls_flag, __u64 res_gurantee);
+int cls_show(char* dev);
 int filter_add(char* dev, __u32 parent, char* _prio, char* handle);
 
 int cgroup_init(void);

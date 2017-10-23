@@ -8,7 +8,7 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) -c -o $@ $< -I$(INCDIR)
 
 ktc: $(OBJS)
-	$(CC) -o $@ $^ $(CFLAGS) -lrt
+	$(CC) -o $@ $^ $(CFLAGS) -lrt -lm
 
 ktc_f:
 	$(CC) -o $@ $(SRCDIR)/ktc_f.c -lrt

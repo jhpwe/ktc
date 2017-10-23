@@ -15,6 +15,11 @@
 #define TIME_UNITS_PER_SEC	1000000
 #define MAX_MSG 16384
 
+#define SPRINT_BSIZE 64
+#define SPRINT_BUF(x)	char x[SPRINT_BSIZE]
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#define IDNAME_MAX 256
+
 /* iprotue2/tc/tc_util.c */
 int get_rate64(__u64 *rate, const char *str);
 
@@ -22,7 +27,7 @@ int get_rate64(__u64 *rate, const char *str);
 /* iprotue2/lib/utils.c */
 int __get_hz(void);
 
-extern int __iproute2_hz_internal; 
+extern int __iproute2_hz_internal;
 static __inline__ int get_hz(void)
 {
 	if (__iproute2_hz_internal == 0)
@@ -33,5 +38,11 @@ static __inline__ int get_hz(void)
 int get_be16(__be16 *val, const char *arg, int base);
 int get_u32(__u32 *val, const char *arg, int base);
 int get_u16(__u16 *val, const char *arg, int base);
+
+void print_size(char *buf, int len, __u32 sz);
+char *sprint_size(__u32 size, char *buf);
+void print_rate(char *buf, int len, __u64 rate);
+char *sprint_rate(__u64 rate, char *buf);
+int print_tc_classid(char *buf, int blen, __u32 h);
 
 #endif /* __KTC_UTILS_H__ */
