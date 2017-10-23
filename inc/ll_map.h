@@ -1,6 +1,8 @@
 #ifndef __LL_MAP_H__
 #define __LL_MAP_H__ 1
 
+#include "libnetlink.h"
+
 int ll_remember_index(const struct sockaddr_nl *who,
 		      struct nlmsghdr *n, void *arg);
 
