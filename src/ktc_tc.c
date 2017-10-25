@@ -21,6 +21,8 @@ struct req_s
 	char			buf[TCA_BUF_MAX];
 };
 
+extern int ktclog(struct ktc_mq_s* ktc_msg, char* comment);
+
 //static __u32 parent = 0x010000;
 //static __u32 defcls = 0x01;
 
@@ -206,49 +208,6 @@ int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, uns
 	return 0;
 }
 
-int _print_opt(FILE *f, struct rtattr *opt)
-{
-	struct rtattr *tb[TCA_HTB_MAX + 1];
-	struct tc_htb_opt *hopt;
-	struct tc_htb_glob *gopt;
-	double buffer, cbuffer;
-	__u64 rate64, ceil64;
-
-	SPRINT_BUF(b1);
-	SPRINT_BUF(b2);
-	SPRINT_BUF(b3);
-
-	if (opt == NULL)
-		return 0;
-
-	parse_rtattr_nested(tb, TCA_HTB_MAX, opt);
-
-	if (tb[TCA_HTB_PARMS]) {
-		hopt = RTA_DATA(tb[TCA_HTB_PARMS]);
-		if (RTA_PAYLOAD(tb[TCA_HTB_PARMS])  < sizeof(*hopt))
-			return -1;
-
-		if (!hopt->level) {
-			fprintf(f, "prio %d ", (int)hopt->prio);
-		}
-
-		/* calc rate */
-		rate64 = hopt->rate.rate;
-		if (tb[TCA_HTB_RATE64] && RTA_PAYLOAD(tb[TCA_HTB_RATE64]) >= sizeof(rate64))
-			rate64 = rta_getattr_u64(tb[TCA_HTB_RATE64]);
-
-		/* calc ceil */
-		ceil64 = hopt->ceil.rate;
-		if (tb[TCA_HTB_CEIL64] && RTA_PAYLOAD(tb[TCA_HTB_CEIL64]) >= sizeof(ceil64))
-			ceil64 = rta_getattr_u64(tb[TCA_HTB_CEIL64]);
-
-		fprintf(f, "rate %s ", sprint_rate(rate64, b1));
-		fprintf(f, "ceil %s ", sprint_rate(ceil64, b1));
-	}
-
-	return 0;
-}
-
 int _print_class(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE *)arg;
@@ -257,46 +216,93 @@ int _print_class(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	struct rtattr *tb[TCA_MAX + 1];
 	char abuf[256];
 
+	struct rtattr *tb_opt[TCA_HTB_MAX + 1];
+	struct tc_htb_opt *hopt;
+	struct tc_htb_glob *gopt;
+	double buffer, cbuffer;
+	__u64 rate64, ceil64;
+
+	char logbuf[256] = {};
+
+	SPRINT_BUF(b1);
+	SPRINT_BUF(b2);
+
 	if (n->nlmsg_type != RTM_NEWTCLASS && n->nlmsg_type != RTM_DELTCLASS) {
-		fprintf(stderr, "Not a class\n");
+		//fprintf(stderr, "Not a class\n");
 		return 0;
 	}
 	len -= NLMSG_LENGTH(sizeof(*t));
 	if (len < 0) {
-		fprintf(stderr, "Wrong len %d\n", len);
+		//fprintf(stderr, "Wrong len %d\n", len);
 		return -1;
 	}
 
 	parse_rtattr(tb, TCA_MAX, TCA_RTA(t), len);
 
 	if (tb[TCA_KIND] == NULL) {
-		fprintf(stderr, "print_class: NULL kind\n");
+		//fprintf(stderr, "print_class: NULL kind\n");
 		return -1;
 	}
 
 	if (n->nlmsg_type == RTM_DELTCLASS)
-		fprintf(fp, "deleted ");
+		//fprintf(fp, "deleted ");
 
 	abuf[0] = 0;
 	if (t->tcm_handle) {
 			print_tc_classid(abuf, sizeof(abuf), t->tcm_handle);
 	}
-	fprintf(fp, "class %s %s ", rta_getattr_str(tb[TCA_KIND]), abuf);
+	//fprintf(fp, "class %s %s ", rta_getattr_str(tb[TCA_KIND]), abuf);
+	sprintf(logbuf, "class %s %s ", rta_getattr_str(tb[TCA_KIND]), abuf);
 
-	if (t->tcm_parent == TC_H_ROOT)
-		fprintf(fp, "root ");
+	if (t->tcm_parent == TC_H_ROOT) {
+		//fprintf(fp, "root ");
+	}
 	else {
 		print_tc_classid(abuf, sizeof(abuf), t->tcm_parent);
-		fprintf(fp, "parent %s ", abuf);
+		//fprintf(fp, "parent %s ", abuf);
 	}
-	if (t->tcm_info)
-		fprintf(fp, "leaf %x: ", t->tcm_info>>16);
 
-	if( strncmp(RTA_DATA(tb[TCA_KIND]), "htb", 3) == 0)
-		_print_opt(fp, tb[TCA_OPTIONS]);
+	if( strncmp(RTA_DATA(tb[TCA_KIND]), "htb", 3) == 0);
+		//_print_opt(fp, tb[TCA_OPTIONS]);
 
-	fprintf(fp, "\n");
-	fflush(fp);
+
+
+		/* _print_opt */
+		if (tb[TCA_OPTIONS] == NULL)
+			return 0;
+
+		parse_rtattr_nested(tb_opt, TCA_HTB_MAX, tb[TCA_OPTIONS]);
+
+		if (tb_opt[TCA_HTB_PARMS]) {
+			hopt = RTA_DATA(tb_opt[TCA_HTB_PARMS]);
+			if (RTA_PAYLOAD(tb_opt[TCA_HTB_PARMS])  < sizeof(*hopt))
+				return -1;
+
+			if (!hopt->level) {
+				//fprintf(fp, "prio %d ", (int)hopt->prio);
+			}
+
+			/* calc rate */
+			rate64 = hopt->rate.rate;
+			if (tb_opt[TCA_HTB_RATE64] && RTA_PAYLOAD(tb_opt[TCA_HTB_RATE64]) >= sizeof(rate64))
+				rate64 = rta_getattr_u64(tb_opt[TCA_HTB_RATE64]);
+
+			/* calc ceil */
+			ceil64 = hopt->ceil.rate;
+			if (tb_opt[TCA_HTB_CEIL64] && RTA_PAYLOAD(tb_opt[TCA_HTB_CEIL64]) >= sizeof(ceil64))
+				ceil64 = rta_getattr_u64(tb_opt[TCA_HTB_CEIL64]);
+
+			sprintf(logbuf, "%srate %s ceil %s", logbuf, sprint_rate(rate64, b1), sprint_rate(ceil64, b1));
+
+			//fprintf(fp, "rate %s ", sprint_rate(rate64, b1));
+			//fprintf(fp, "ceil %s ", sprint_rate(ceil64, b1));
+		}
+
+	//fprintf(fp, "\n");
+	ktclog(NULL, logbuf);
+
+	//fflush(fp);
+
 	return 0;
 }
 

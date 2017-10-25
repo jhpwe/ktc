@@ -34,7 +34,7 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    if(argc < 4)
+    if(argc < 2)
     {
       usage();
       return -1;
@@ -118,6 +118,15 @@ int main(int argc, char **argv)
       printf("Unknown Command %s\n", kmq.cmd);
       usage();
       return -1;
+    }
+
+    if(strcmp(kmq.cmd, "quit") != 0)
+    {
+      if(kmq.pid[0] == 0 || kmq.upper[0] == 0)
+      {
+        usage();
+        return -1;
+      }
     }
 
     if((mq_send(mfd, (char *)&kmq, attr.mq_msgsize, 1)) == -1)
