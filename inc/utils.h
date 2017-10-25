@@ -20,6 +20,14 @@
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #define IDNAME_MAX 256
 
+struct ktc_mq_s
+{
+  char cmd[8];
+  char pid[8];
+  char upper[16];
+  char lower[16];
+};
+
 /* iprotue2/tc/tc_util.c */
 int get_rate64(__u64 *rate, const char *str);
 
@@ -44,5 +52,6 @@ char *sprint_size(__u32 size, char *buf);
 void print_rate(char *buf, int len, __u64 rate);
 char *sprint_rate(__u64 rate, char *buf);
 int print_tc_classid(char *buf, int blen, __u32 h);
+int ktclog(char* path, struct ktc_mq_s* ktc_msg, char* comment);
 
 #endif /* __KTC_UTILS_H__ */
