@@ -14,6 +14,8 @@
 
 #define NET_CLS_PATH "/sys/fs/cgroup/net_cls/"
 
+extern char start_path[128];
+
 struct req_s
 {
 	struct nlmsghdr	n;
@@ -297,7 +299,7 @@ int _print_class(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		}
 
 	//fprintf(fp, "\n");
-	ktclog(NULL, logbuf);
+	ktclog(start_path, NULL, logbuf);
 
 	//fflush(fp);
 
