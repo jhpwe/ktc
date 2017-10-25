@@ -21,8 +21,6 @@ struct req_s
 	char			buf[TCA_BUF_MAX];
 };
 
-extern int ktclog(struct ktc_mq_s* ktc_msg, char* comment);
-
 //static __u32 parent = 0x010000;
 //static __u32 defcls = 0x01;
 
@@ -252,7 +250,7 @@ int _print_class(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 			print_tc_classid(abuf, sizeof(abuf), t->tcm_handle);
 	}
 	//fprintf(fp, "class %s %s ", rta_getattr_str(tb[TCA_KIND]), abuf);
-	sprintf(logbuf, "class %s %s ", rta_getattr_str(tb[TCA_KIND]), abuf);
+	sprintf(logbuf, "class %s %s ", rta_getattr_str(tb[TCA_KIND]), abuf); // ex ) class htb 1:1
 
 	if (t->tcm_parent == TC_H_ROOT) {
 		//fprintf(fp, "root ");
@@ -262,12 +260,12 @@ int _print_class(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		//fprintf(fp, "parent %s ", abuf);
 	}
 
-	if( strncmp(RTA_DATA(tb[TCA_KIND]), "htb", 3) == 0);
-		//_print_opt(fp, tb[TCA_OPTIONS]);
+	if(strncmp(RTA_DATA(tb[TCA_KIND]), "htb", 3) != 0)
+	{
+		return -1;
+	}
 
-
-
-		/* _print_opt */
+		/* print rate and ceil */
 		if (tb[TCA_OPTIONS] == NULL)
 			return 0;
 
@@ -313,7 +311,7 @@ int cls_show(char* dev)
 	char buf[1024] = {0};
 
 	if (rtnl_open(&rth, 0) < 0) {
-		fprintf(stderr, "Cannot open rtnetlink\n");
+		//fprintf(stderr, "Cannot open rtnetlink\n");
 		exit(1);
 	}
 
@@ -321,18 +319,18 @@ int cls_show(char* dev)
 
 	if (dev[0]) {
 		if ((t.tcm_ifindex = ll_name_to_index(dev)) == 0) {
-			fprintf(stderr, "Cannot find device \"%s\"\n", dev);
+			//fprintf(stderr, "Cannot find device \"%s\"\n", dev);
 			return 1;
 		}
 	}
 
 		if (rtnl_dump_request(&rth, RTM_GETTCLASS, &t, sizeof(t)) < 0) {
-			perror("Cannot send dump request");
+			//perror("Cannot send dump request");
 			return 1;
 		}
 
 		if (rtnl_dump_filter(&rth, _print_class, stdout) < 0) {
-			fprintf(stderr, "Dump terminated\n");
+			//fprintf(stderr, "Dump terminated\n");
 			return 1;
 		}
 
