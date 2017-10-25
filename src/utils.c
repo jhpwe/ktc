@@ -3,6 +3,9 @@
 #include <asm/param.h>
 #include <linux/atm.h>
 #include <math.h>
+#include <time.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "utils.h"
 
@@ -216,3 +219,27 @@ int print_tc_classid(char *buf, int blen, __u32 h)
 
 	return 0;
 }
+
+int ktclog(char* path, struct ktc_mq_s* ktc_msg, char* comment) 
+{
+	time_t t = time(NULL);
+	struct tm tm = *localtime(&t);
+	char* home;
+	FILE* logfile;
+
+	if((logfile = fopen(path, "a")) < 0 ) 
+	{
+		perror("log file ");	
+		exit(0);
+	}
+
+	fprintf(logfile, "%d [%2d-%2d-%2d/%2d:%2d:%2d] ", getpid(), tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+	if(ktc_msg) fprintf(logfile, "%s from %s bound(%s ~ %s) ", ktc_msg->cmd, ktc_msg->pid, ktc_msg->lower, ktc_msg->upper);
+	if(comment)	fprintf(logfile, "%s", comment);
+	fprintf(logfile, "\n");
+	
+	fclose(logfile);
+
+	return 0;
+}
+
