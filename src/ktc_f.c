@@ -115,7 +115,7 @@ int main(int argc, char **argv)
 
     if( (strcmp(kmq.cmd, "add") && strcmp(kmq.cmd, "delete") && strcmp(kmq.cmd, "change") && strcmp(kmq.cmd, "quit")) )
     {
-      printf("Unknown Command %s\n", cmd);
+      printf("Unknown Command %s\n", kmq.cmd);
       usage();
       return -1;
     }
