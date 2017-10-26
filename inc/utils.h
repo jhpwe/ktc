@@ -24,11 +24,11 @@
 
 struct ktc_mq_s
 {
-  struct list_head	list;
   char 				cmd[8];
   char		   		pid[8];
   char		   		upper[16];
   char		   		lower[16];
+  char          recvmsg[32];
 };
 
 /* iprotue2/tc/tc_util.c */

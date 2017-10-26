@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <mqueue.h>
 #include <time.h>
+#include <pthread.h>
 
 #include "gcls.h"
 #include "utils.h"
@@ -17,6 +18,9 @@
 #define KTC_MQ_PATH "/ktc_mq"
 
 char start_path[128];
+
+int d_quit;
+pthread_mutex_t p_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 mqd_t msgq_init(struct mq_attr* attr)
 {
@@ -59,7 +63,6 @@ int msgq_get(mqd_t mfd, struct mq_attr* attr, struct ktc_mq_s* kmq)
 	return 0;
 }
 
-
 int ktc_proc_insert(char* pid, char* low, char* high)
 {
 	if(check_pid(pid))
@@ -94,7 +97,7 @@ int ktc_proc_change(char* pid, char* low, char* high)
 	return 0;
 }
 
-int ktc_proc_delete(char* pid, char* link_speed)
+int ktc_proc_delete(char* pid)
 {
 	if(check_pid(pid))
 	{
@@ -116,12 +119,6 @@ void usage(void)
 	printf("Usage: ktc dev [DEVICE NAME] link [MAX LINK SPEED]\n");
 }
 
-struct msg_q {
-	struct list_head		list;
-	int						size;
-};
-
-struct msg_q mq;
 char dev[16] = {};
 char link_speed[16] = {};
 
@@ -130,8 +127,9 @@ int monitor() {
 	struct gcls* pos = NULL;
 	struct list_head* head = gcls_get_head();
 
-	while(1) {
+	while(d_quit) {
 		// lock
+		pthread_mutex_lock(&p_mutex);
 
 		/* in loop, check absence of pid */
 		list_for_each_entry(pos, head, list) {
@@ -154,15 +152,63 @@ int monitor() {
 
 		/* set remain rate to default class */
 		cls_modify(dev, 0x010001, 0x010002, 0, link_speed, KTC_CHANGE_DEFUALT, gcls_get_remain());
+
+		//unlock
+		pthread_mutex_unlock(&p_mutex);
+
+		sleep(1);
 	}
+}
+
+void* msg_handler(void* data)
+{
+	mqd_t mfd;
+	struct mq_attr attr;
+	struct ktc_mq_s kmq;
+
+	if((mfd = msgq_init(&attr)) < 0)
+	{
+		ktclog(start_path, NULL, "msgq open error");
+		exit(-1);
+	}
+
+	while(1)
+	{
+		msgq_get(mfd, &attr, &kmq);
+
+		pthread_mutex_lock(&p_mutex);
+
+		if(strcmp(kmq.cmd, "add") == 0)
+		{
+				ktc_proc_insert(kmq.pid, kmq.lower, kmq.upper);
+				ktclog(start_path, &kmq, NULL);
+		}
+		else if(strcmp(kmq.cmd, "change") == 0)
+		{
+				ktc_proc_change(kmq.pid, kmq.lower, kmq.upper);
+				ktclog(start_path, &kmq, NULL);
+		}
+		else if(strcmp(kmq.cmd, "delete") == 0)
+		{
+				ktc_proc_delete(kmq.pid);
+				ktclog(start_path, &kmq, NULL);
+		}
+		else if(strcmp(kmq.cmd, "quit") == 0)
+		{
+				ktclog(start_path, &kmq, NULL);
+				d_quit = 0;
+				break;
+		}
+
+		pthread_mutex_unlock(&p_mutex);
+	}
+	msgq_release(mfd);
+
+	exit(0);
 }
 
 int main(int argc, char** argv)
 {
-
-	mqd_t mfd;
-	struct mq_attr attr;
-
 	if(access("/", R_OK | W_OK) != 0) {
 		printf("Must run as root.\n");
 		return -1;
@@ -216,7 +262,6 @@ int main(int argc, char** argv)
 		ktclog(start_path, NULL, "daemon start");
 	}
 
-
 	signal(SIGHUP, SIG_IGN);	/* Ignore SIGHUP(Terminal disconnected) */
 	close(0);	/* close stderr, stdin, stdout */
 	close(1);
@@ -239,18 +284,21 @@ int main(int argc, char** argv)
 
 	ktclog(start_path, NULL, "initialization done");
 
-	if((mfd = msgq_init(&attr)) < 0)
-	{
-		ktclog(start_path, NULL, "msgq open error");
-		return -1;
-	}
-
-	mq.size = 0;
-	INIT_LIST_HEAD(&mq.list);
-
 	//msg_loop(mfd, &kmq, &attr, dev, link_speed); --> TODO: Thread function
+	pthread_t thread_id;
+	int status;
 
-	msgq_release(mfd);
+	d_quit = 1;
+
+	pthread_create(&thread_id, NULL, &msg_handler, NULL);
+
+	//monitor
+	monitor();
+
+	pthread_join(thread_id, (void **)&status);
+
+	pthread_mutex_destroy(&p_mutex);
+
 	ktclog(start_path, NULL, "daemon exit");
 
 	return 0;

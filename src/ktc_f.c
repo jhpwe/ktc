@@ -11,6 +11,7 @@ struct ktc_mq_s
   char pid[8];
   char upper[16];
   char lower[16];
+  char recvmsg[32];
 };
 
 void usage(void)
@@ -129,7 +130,7 @@ int main(int argc, char **argv)
       return -1;
     }
 
-    if(strcmp(kmq.cmd, "quit") != 0)
+    if(strcmp(kmq.cmd, "quit") != 0 && strcmp(kmq.cmd, "delete"))
     {
       if(kmq.pid[0] == 0 || kmq.lower[0] == 0)
       {
@@ -147,11 +148,15 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    if((mq_receive(mfd, (char *)kmq, attr->mq_msgsize,NULL)) == -1)
+/*
+    if((mq_receive(mfd, (char *)&kmq, attr.mq_msgsize, NULL)) == -1)
     {
-      perror("receive error")
+      perror("receive error");
       return -1;
     }
+
+    printf("%s", kmq.recvmsg);
+*/
 
     mq_close(mfd);
 
