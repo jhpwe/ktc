@@ -11,6 +11,8 @@
 #include <errno.h>
 #include <arpa/inet.h>
 
+#include "list.h"
+
 #define TCA_BUF_MAX			(64*1024)
 #define TIME_UNITS_PER_SEC	1000000
 #define MAX_MSG 16384
@@ -22,10 +24,11 @@
 
 struct ktc_mq_s
 {
-  char cmd[8];
-  char pid[8];
-  char upper[16];
-  char lower[16];
+  struct list_head	list;
+  char 				cmd[8];
+  char		   		pid[8];
+  char		   		upper[16];
+  char		   		lower[16];
 };
 
 /* iprotue2/tc/tc_util.c */
@@ -46,6 +49,7 @@ static __inline__ int get_hz(void)
 int get_be16(__be16 *val, const char *arg, int base);
 int get_u32(__u32 *val, const char *arg, int base);
 int get_u16(__u16 *val, const char *arg, int base);
+int get_tc_classid(__u32 *h, const char *str);
 
 void print_size(char *buf, int len, __u32 sz);
 char *sprint_size(__u32 size, char *buf);

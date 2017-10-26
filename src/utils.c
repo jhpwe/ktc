@@ -220,6 +220,42 @@ int print_tc_classid(char *buf, int blen, __u32 h)
 	return 0;
 }
 
+int get_tc_classid(__u32 *h, const char *str)
+{
+	__u32 maj, min;
+	char *p;
+
+	maj = TC_H_ROOT;
+	if (strcmp(str, "root") == 0)
+		goto ok;
+	maj = TC_H_UNSPEC;
+	if (strcmp(str, "none") == 0)
+		goto ok;
+	maj = strtoul(str, &p, 16);
+	if (p == str) {
+		maj = 0;
+		if (*p != ':')
+			return -1;
+	}
+	if (*p == ':') {
+		if (maj >= (1<<16))
+			return -1;
+		maj <<= 16;
+		str = p+1;
+		min = strtoul(str, &p, 16);
+		if (*p != 0)
+			return -1;
+		if (min >= (1<<16))
+			return -1;
+		maj |= min;
+	} else if (*p != 0)
+		return -1;
+
+ok:
+	*h = maj;
+	return 0;
+}
+
 int ktclog(char* path, struct ktc_mq_s* ktc_msg, char* comment) 
 {
 	time_t t = time(NULL);

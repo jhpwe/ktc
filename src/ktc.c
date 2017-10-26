@@ -12,6 +12,7 @@
 #include "gcls.h"
 #include "utils.h"
 #include "ktc_tc.h"
+#include "list.h"
 
 #define KTC_MQ_PATH "/ktc_mq"
 
@@ -63,14 +64,50 @@ void usage(void)
 	printf("Usage: ktc dev [DEVICE NAME] link [MAX LINK SPEED]\n");
 }
 
+struct msg_q {
+	struct list_head		list;
+	int						size;
+};
+
+struct msg_q mq;
+char dev[16] = {};
+char link_speed[16] = {};
+
+int monitor() {
+	struct gcls* target = NULL;
+	struct gcls* pos = NULL;
+	struct list_head* head = gcls_get_head();
+
+	while(1) {
+		// lock
+
+		/* in loop, check absence of pid */
+		list_for_each_entry(pos, head, list) {
+			if(check_pid(pos->pid)) {	/* if absence, delete */
+				gcls_delete_pid(pos->pid);
+			} 
+		}	
+	
+		/* modify & updates all cls_show */
+		cls_show(dev); /* updates class info, rate(low) & ceil(high) of list */
+		list_for_each_entry(pos, head, list) {
+			if(pos->mod == 0) {	
+				gcls_delete_pid(pos->pid);	/* if not modified == not exist in real tc --> delete */
+			} else {
+				pos->mod = 0;
+			}   
+		}
+	
+		/* set remain rate to default class */
+		cls_modify(dev, 0x010001, 0x010002, 0, link_speed, KTC_CHANGE_DEFUALT, gcls_get_remain());
+	}
+}
+
 int main(int argc, char** argv)
 {
-	char dev[16] = {};
-	char link_speed[16] = {};
 
 	mqd_t mfd;
 	struct mq_attr attr;
-	struct ktc_mq_s kmq;
 
 	if(access("/", R_OK | W_OK) != 0) {
 		printf("Must run as root.\n");
@@ -153,33 +190,11 @@ int main(int argc, char** argv)
 		ktclog(start_path, NULL, "msgq open error");
 		return -1;
 	}
+	
+	mq.size = 0;
+	INIT_LIST_HEAD(&mq.list);
 
-	while(1)
-	{
-		if(msgq_get(mfd, &attr, &kmq) < 0)
-		{
-			ktclog(start_path, NULL, "msgq get error");
-			return -1;
-		}
-
-		ktclog(start_path, &kmq, NULL);
-		if(strcmp(kmq.cmd, "add") == 0)
-		{
-			ktc_proc_insert(dev, kmq.pid, kmq.lower, kmq.upper, link_speed);
-		}
-		else if(strcmp(kmq.cmd, "change") == 0)
-		{
-			ktc_proc_change(dev, kmq.pid, kmq.lower, kmq.upper, link_speed);
-		}
-		else if(strcmp(kmq.cmd, "delete") == 0)
-		{
-			ktc_proc_delete(dev, kmq.pid, link_speed);
-		} 
-		else if(strcmp(kmq.cmd, "quit") == 0) 
-		{
-			break;
-		}
-	}
+	//msg_loop(mfd, &kmq, &attr, dev, link_speed); --> TODO: Thread function
 
 	msgq_release(mfd);
 	ktclog(start_path, NULL, "daemon exit");

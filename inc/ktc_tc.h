@@ -11,6 +11,7 @@ enum ktc_cls_flags {
 	KTC_CHANGE_DEFUALT
 };
 
+int check_pid(char* pid);
 int qdisc_init(char* dev, __u32 parent, __u32 defcls);
 int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, unsigned int cls_flag, __u64 res_gurantee);
 int cls_show(char* dev);

@@ -252,8 +252,10 @@ int _print_class(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 			print_tc_classid(abuf, sizeof(abuf), t->tcm_handle);
 	}
 	//fprintf(fp, "class %s %s ", rta_getattr_str(tb[TCA_KIND]), abuf);
-	sprintf(logbuf, "class %s %s ", rta_getattr_str(tb[TCA_KIND]), abuf); // ex ) class htb 1:1
-
+	sprintf(logbuf, "class %s %s ", rta_getattr_str(tb[TCA_KIND]), abuf); // ex ) class htb 1:1	
+	__u32 cid = 0;
+	get_tc_classid(&cid, abuf);
+	
 	if (t->tcm_parent == TC_H_ROOT) {
 		//fprintf(fp, "root ");
 	}
@@ -293,7 +295,10 @@ int _print_class(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 				ceil64 = rta_getattr_u64(tb_opt[TCA_HTB_CEIL64]);
 
 			sprintf(logbuf, "%srate %s ceil %s", logbuf, sprint_rate(rate64, b1), sprint_rate(ceil64, b1));
-
+			if(gcls_modify_u(cid, rate64, ceil64) < 0) {
+				//class not exist
+			}
+			
 			//fprintf(fp, "rate %s ", sprint_rate(rate64, b1));
 			//fprintf(fp, "ceil %s ", sprint_rate(ceil64, b1));
 		}
@@ -511,31 +516,19 @@ int ktc_proc_insert(char* dev, char* pid, char* low, char* high, char* link_spee
 
 	if(check_pid(pid))
 	{
-		printf("PID %s is not running.\n", pid);
+		ktclog(start_path, NULL, "process is not running");
 		return -1;
 	}
 
-	if(gcls_check_pid(pid) > 0)
+	if((gcls_add(pid, low, high)) != 0)
 	{
-		printf("PID %s is already exist in list.\n", pid);
-		return -1;
-	}
-
-	clsid = gcls_empty_id();
-
-	printf("0x%x\n",clsid);
-
-	if( (def_rate = gcls_add(clsid, pid, low, high) ) == ULONG_MAX)
-	{
-		printf("total rate over the max link speed\n");
+		//printf("total rate over the max link speed\n");
 		return -1;
 	}
 
 	cgroup_proc_add(pid, clsid);
 
 	cls_modify(dev, 0x010001, clsid, low, high, KTC_CREATE_CLASS, 0);
-
-	cls_modify(dev, 0x010001, 0x010002, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
 
 	return 0;
 }
@@ -547,25 +540,22 @@ int ktc_proc_change(char* dev, char* pid, char* low, char* high, char* link_spee
 
 	if(check_pid(pid))
 	{
-		printf("PID %s is not running.\n", pid);
+		ktclog(start_path, NULL, "process is not running");
 		return -1;
 	}
 
-	if( (clsid = gcls_check_pid(pid)) == 0)
-	{
-		printf("PID %s is not exist in list.\n", pid);
+	if((clsid = gcls_check_pid(pid)) < 0) {
+		ktclog(start_path, NULL, "class is not exist");
 		return -1;
 	}
 
-	if( (def_rate = gcls_modify(clsid, pid, low, high) ) == ULONG_MAX)
+	if((gcls_modify(pid, low, high)) != 0)
 	{
-		printf("total rate over the max link speed\n");
+		ktclog(start_path, NULL, "gcls modify failed");
 		return -1;
 	}
 
 	cls_modify(dev, 0x010001, clsid, low, high, KTC_CHANGE_CLASS, 0);
-
-	cls_modify(dev, 0x010001, 0x010002, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
 
 	return 0;
 }
@@ -577,28 +567,19 @@ int ktc_proc_delete(char* dev, char* pid, char* link_speed)
 
 	if(check_pid(pid))
 	{
-		printf("PID %s is not running.\n", pid);
-		printf("Force delete in list.\n");
+		ktclog(start_path, NULL, "process is not running");
 	//	return -1;
 	}
 
-	if( (clsid = gcls_check_pid(pid)) == 0)
+	if((gcls_delete_pid(pid)) != 0) //fail < 0, success = res gurantee
 	{
-		printf("PID %s is not exist in list.\n", pid);
-		return -1;
-	}
-
-	if( (def_rate = gcls_delete_pid(pid) ) == ULONG_MAX ) //fail < 0, success = res gurantee
-	{
-		printf("Something wrong.\n");
+		ktclog(start_path, NULL, "gcls delete failed");
 		return -1;
 	}
 
 	cgroup_proc_del(pid);
 
 	cls_modify(dev, 0, clsid, NULL, NULL, KTC_DELETE_CLASS, 0);
-
-	cls_modify(dev, 0x010001, 0x010002, 0, link_speed, KTC_CHANGE_DEFUALT, def_rate);
 
 	return 0;
 }

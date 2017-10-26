@@ -17,15 +17,6 @@ struct defgcls {
 	__u64				high;
 };
 
-struct gcls {
-	struct list_head	list;
-	__u32				id;
-	char				pid[8];
-
-	__u64				low;
-	__u64				high;
-};
-
 static struct defgcls 	defgcls;
 static __u32 			root;
 static __u32			empty[CLSMAX];
@@ -75,6 +66,7 @@ struct gcls* gcls_create(__u32 clsid, char* pid, __u64 low, __u64 high) {
 	strncpy(tmp->pid, pid, strlen(pid));
 	tmp->low = low;
 	tmp->high = high;
+	tmp->mod = 0;
 
 	defgcls.low -= tmp->low;
 
@@ -111,6 +103,14 @@ struct gcls* gcls_get_pid(char* target_pid) {
 	return target;
 }
 
+struct list_head* gcls_get_head() {
+	return &defgcls.list;
+}
+
+__u64 gcls_get_remain() {
+	return defgcls.low;
+}
+
 __u32 gcls_check_pid(char* pid) {
 	struct gcls* target = gcls_get_pid(pid);
 
@@ -120,48 +120,91 @@ __u32 gcls_check_pid(char* pid) {
 		return 0;
 }
 
-__u64 gcls_add(__u32 clsid, char* pid, char* clow, char* chigh) {
+int gcls_check_classid(__u32 cid) {
+	struct gcls* target = NULL;
+	struct gcls* pos = NULL;
+	struct list_head* head = &defgcls.list;
+
+	list_for_each_entry(pos, head, list) {
+		if(pos->id == cid) {
+			return 1;
+		}
+	}	
+
+	return 0;
+
+}
+
+int gcls_add(char* pid, char* clow, char* chigh) {
+	if(gcls_check_pid(pid) > 0)
+	{
+		printf("PID %s is already exist in list.\n", pid);
+		return -1;
+	}
+
+	__u32 clsid = gcls_empty_id();
 	__u64 low, high;
 	get_rate64(&low, clow);
 	get_rate64(&high, chigh);
 
 	struct gcls* new = gcls_create(clsid, pid, low, high);
 	if(new == NULL)
-		return ULONG_MAX;
+		return 1;
 
 	list_add(&new->list, &defgcls.list);	
 
-	return defgcls.low;
+	return 0;
 }
 
-__u64 gcls_modify(__u32 clsid, char* pid, char* clow, char* chigh) {
+int gcls_modify_u(__u32 clsid, __u64 rate, __u64 ceil) {
 	struct gcls* target = gcls_get_id(clsid);
 	if(target == NULL)
-		return ULONG_MAX;
+		return 1;
 
 	__u64 low, high;
-	get_rate64(&low, clow);
-	get_rate64(&high, chigh);
+	low = rate;
+	high = ceil;
 
 	if((defgcls.low + target->low) < low) 
-		return ULONG_MAX;
+		return 1;
 
 	defgcls.low += target->low;
 	target->low = low;	
 	target->high = high;
 	defgcls.low -= target->low;
 
-	return defgcls.low;
+	return 0;
 }
 
-__u64 gcls_delete_pid(char* pid) {
+int gcls_modify(char* pid, char* clow, char* chigh) {
+	struct gcls* target = gcls_get_pid(pid);
+	if(target == NULL)
+		return 1;
+
+	__u64 low, high;
+	get_rate64(&low, clow);
+	get_rate64(&high, chigh);
+
+	if((defgcls.low + target->low) < low) 
+		return 1;
+
+	defgcls.low += target->low;
+	target->low = low;	
+	target->high = high;
+	defgcls.low -= target->low;
+	target->mod = 1;
+
+	return 0;
+}
+
+int gcls_delete_pid(char* pid) {
 	struct gcls* del = gcls_get_pid(pid);	
 	if(del == NULL)
-		return ULONG_MAX;
+		return 1;
 
 	defgcls.low += del->low;
 	list_del(&del->list);
 	free(del);
 
-	return defgcls.low;
+	return 0;
 }
