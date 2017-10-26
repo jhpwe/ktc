@@ -126,6 +126,7 @@ int monitor() {
 	struct gcls* target = NULL;
 	struct gcls* pos = NULL;
 	struct list_head* head = gcls_get_head();
+	char tmp[128];
 
 	while(d_quit) {
 		// lock
@@ -136,6 +137,10 @@ int monitor() {
 			if(check_pid(pos->pid)) {	/* if absence, delete */
 				cgroup_proc_del(pos->pid);
 				gcls_delete_pid(pos->pid);
+				memset(tmp, 0, 128);
+				sprintf(tmp, "%s is deleted check_pid", pos->pid);
+			
+				ktclog(start_path, NULL, tmp);
 			}
 		}
 
@@ -145,11 +150,18 @@ int monitor() {
 			if(pos->mod == 0) {
 				cgroup_proc_del(pos->pid);
 				gcls_delete_pid(pos->pid);	/* if not modified == not exist in real tc --> delete */
+				memset(tmp, 0, 128);
+				sprintf(tmp, "%s is deleted not modified", pos->pid);
+			
+				ktclog(start_path, NULL, tmp);
 			} else {
 				pos->mod = 0;
 			}
 		}
-
+		
+//		memset(tmp, 0, 128);
+//		sprintf(tmp, "current remain %d", gcls_get_remain());
+//		ktclog(start_path, NULL, tmp);
 		/* set remain rate to default class */
 		cls_modify(dev, 0x010001, 0x010002, 0, link_speed, KTC_CHANGE_DEFUALT, gcls_get_remain());
 

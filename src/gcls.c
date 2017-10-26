@@ -20,6 +20,7 @@ struct defgcls {
 static struct defgcls 	defgcls;
 static __u32 			root;
 static __u32			empty[CLSMAX];
+static __u64			min_rate;
 
 void gcls_show() {
 	struct gcls* pos = NULL;
@@ -38,6 +39,7 @@ void gcls_init(__u32 parent, __u32 defid, char* link_max) {
 	get_rate64(&defgcls.link, link_max);
 	get_rate64(&defgcls.low, link_max);
 	get_rate64(&defgcls.high, link_max);
+	get_rate64(&min_rate, "100kbit");
 	INIT_LIST_HEAD(&defgcls.list);
 
 	empty[0] = 1;
@@ -57,7 +59,7 @@ __u32 gcls_empty_id() {
 
 struct gcls* gcls_create(__u32 clsid, char* pid, __u64 low, __u64 high) {
 	struct gcls* tmp;
-	if(low > defgcls.low)
+	if(low + min_rate > defgcls.low)
 		return NULL;
 
 	tmp = malloc(sizeof(struct gcls));
@@ -136,6 +138,7 @@ int gcls_check_classid(__u32 cid) {
 }
 
 extern char dev[16];
+extern char start_path[128];
 
 int gcls_add(char* pid, char* clow, char* chigh) {
 	if(gcls_check_pid(pid) > 0)
@@ -153,8 +156,7 @@ int gcls_add(char* pid, char* clow, char* chigh) {
 	if(new == NULL)
 		return 1;
 
-	list_add(&new->list, &defgcls.list);	
-
+	list_add(&new->list, &defgcls.list);
 
 	cgroup_proc_add(pid, clsid);
 	cls_modify(dev, 0x010001, new->id, clow, chigh, KTC_CREATE_CLASS, 0);
@@ -171,13 +173,14 @@ int gcls_modify_u(__u32 clsid, __u64 rate, __u64 ceil) {
 	low = rate;
 	high = ceil;
 
-	if((defgcls.low + target->low) < low) 
+	if((defgcls.low + target->low) < low + min_rate) 
 		return 1;
 
 	defgcls.low += target->low;
 	target->low = low;	
 	target->high = high;
 	defgcls.low -= target->low;
+	target->mod = 1;	
 
 	return 0;
 }
@@ -191,7 +194,7 @@ int gcls_modify(char* pid, char* clow, char* chigh) {
 	get_rate64(&low, clow);
 	get_rate64(&high, chigh);
 
-	if((defgcls.low + target->low) < low) 
+	if((defgcls.low + target->low) < low + min_rate) 
 		return 1;
 
 	defgcls.low += target->low;

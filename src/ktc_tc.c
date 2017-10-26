@@ -142,10 +142,12 @@ int cls_modify(char* dev, __u32 parent, __u32 clsid, char* rate, char* ceil, uns
 	{
 		addattr_l(&req.n, sizeof(req), TCA_KIND, "htb", 4);
 
-		if(cls_flag != KTC_CHANGE_DEFUALT)
+		if(cls_flag != KTC_CHANGE_DEFUALT) {
 			get_rate64(&rate64, rate);	// "rate ##mbps"
-		else
+		} else {
 			rate64 = res_gurantee;
+			ceil64 = res_gurantee;
+		}
 
 		get_rate64(&ceil64, ceil);	// "ceil ##mbps"
 		opt.rate.rate = (rate64 >= (1ULL << 32)) ? ~0U : rate64;
