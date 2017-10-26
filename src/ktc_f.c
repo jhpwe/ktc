@@ -27,10 +27,10 @@ int main(int argc, char **argv)
 
     mqd_t mfd;
 
-    mfd = mq_open(KTC_MQ_PATH, O_WRONLY, 0666, &attr);
+    mfd = mq_open(KTC_MQ_PATH, O_RDWR, 0666, &attr);
     if(mfd == -1)
     {
-        perror("open error");
+        perror("msgq open error");
         return -1;
     }
 
@@ -89,19 +89,28 @@ int main(int argc, char **argv)
   		{
   			argc--;
   			argv++;
-  			strncpy(kmq.pid, *argv, sizeof(kmq.pid)-1);
+        if(argc > 0)
+  			   strncpy(kmq.pid, *argv, sizeof(kmq.pid)-1);
+        else
+          usage();
   		}
   		else if(strcmp(*argv, "upper") == 0)
   		{
   			argc--;
   			argv++;
-  			strncpy(kmq.upper, *argv, sizeof(kmq.upper)-1);
+        if(argc > 0)
+  			   strncpy(kmq.upper, *argv, sizeof(kmq.upper)-1);
+       else
+         usage();
   		}
       else if(strcmp(*argv, "lower") == 0)
       {
         argc--;
         argv++;
-        strncpy(kmq.lower, *argv, sizeof(kmq.lower)-1);
+        if(argc > 0)
+          strncpy(kmq.lower, *argv, sizeof(kmq.lower)-1);
+        else
+          usage();
       }
   		else
   		{
@@ -122,17 +131,26 @@ int main(int argc, char **argv)
 
     if(strcmp(kmq.cmd, "quit") != 0)
     {
-      if(kmq.pid[0] == 0 || kmq.upper[0] == 0)
+      if(kmq.pid[0] == 0 || kmq.lower[0] == 0)
       {
         usage();
         return -1;
       }
     }
 
+    //no ceil
+    strncpy(kmq.upper, kmq.lower, sizeof(kmq.lower));
+
     if((mq_send(mfd, (char *)&kmq, attr.mq_msgsize, 1)) == -1)
     {
         perror("send error");
         return -1;
+    }
+
+    if((mq_receive(mfd, (char *)kmq, attr->mq_msgsize,NULL)) == -1)
+    {
+      perror("receive error")
+      return -1;
     }
 
     mq_close(mfd);

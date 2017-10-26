@@ -33,7 +33,7 @@ mqd_t msgq_init(struct mq_attr* attr)
 	return mfd;
 }
 
-int msgq_release(mqd_t mfd) 
+int msgq_release(mqd_t mfd)
 {
 	if(mq_close(mfd) < 0) {
 		ktclog(start_path, NULL, "mq_close error");
@@ -56,6 +56,82 @@ int msgq_get(mqd_t mfd, struct mq_attr* attr, struct ktc_mq_s* kmq)
 		sprintf(tmp, "received : %s %s\n",kmq->cmd, kmq->pid);
 		ktclog(start_path, NULL, tmp);
 	}
+	return 0;
+}
+
+
+int ktc_proc_insert(char* dev, char* pid, char* low, char* high, char* link_speed)
+{
+	__u32 clsid;
+	__u64 def_rate;
+
+	if(check_pid(pid))
+	{
+		ktclog(start_path, NULL, "process is not running");
+		return -1;
+	}
+
+	if((gcls_add(pid, low, high)) != 0)
+	{
+		//printf("total rate over the max link speed\n");
+		return -1;
+	}
+
+	cgroup_proc_add(pid, clsid);
+
+	cls_modify(dev, 0x010001, clsid, low, high, KTC_CREATE_CLASS, 0);
+
+	return 0;
+}
+
+int ktc_proc_change(char* dev, char* pid, char* low, char* high, char* link_speed)
+{
+	__u32 clsid;
+	__u64 def_rate;
+
+	if(check_pid(pid))
+	{
+		ktclog(start_path, NULL, "process is not running");
+		return -1;
+	}
+
+	if((clsid = gcls_check_pid(pid)) < 0) {
+		ktclog(start_path, NULL, "class is not exist");
+		return -1;
+	}
+
+	if((gcls_modify(pid, low, high)) != 0)
+	{
+		ktclog(start_path, NULL, "gcls modify failed");
+		return -1;
+	}
+
+	cls_modify(dev, 0x010001, clsid, low, high, KTC_CHANGE_CLASS, 0);
+
+	return 0;
+}
+
+int ktc_proc_delete(char* dev, char* pid, char* link_speed)
+{
+	__u32 clsid;
+	__u64 def_rate;
+
+	if(check_pid(pid))
+	{
+		ktclog(start_path, NULL, "process is not running");
+	//	return -1;
+	}
+
+	if((gcls_delete_pid(pid)) != 0) //fail < 0, success = res gurantee
+	{
+		ktclog(start_path, NULL, "gcls delete failed");
+		return -1;
+	}
+
+	cgroup_proc_del(pid);
+
+	cls_modify(dev, 0, clsid, NULL, NULL, KTC_DELETE_CLASS, 0);
+
 	return 0;
 }
 
@@ -84,20 +160,22 @@ int monitor() {
 		/* in loop, check absence of pid */
 		list_for_each_entry(pos, head, list) {
 			if(check_pid(pos->pid)) {	/* if absence, delete */
+				cgroup_proc_del(pos->pid);
 				gcls_delete_pid(pos->pid);
-			} 
-		}	
-	
+			}
+		}
+
 		/* modify & updates all cls_show */
 		cls_show(dev); /* updates class info, rate(low) & ceil(high) of list */
 		list_for_each_entry(pos, head, list) {
-			if(pos->mod == 0) {	
+			if(pos->mod == 0) {
+				cgroup_proc_del(pos->pid);
 				gcls_delete_pid(pos->pid);	/* if not modified == not exist in real tc --> delete */
 			} else {
 				pos->mod = 0;
-			}   
+			}
 		}
-	
+
 		/* set remain rate to default class */
 		cls_modify(dev, 0x010001, 0x010002, 0, link_speed, KTC_CHANGE_DEFUALT, gcls_get_remain());
 	}
@@ -190,7 +268,7 @@ int main(int argc, char** argv)
 		ktclog(start_path, NULL, "msgq open error");
 		return -1;
 	}
-	
+
 	mq.size = 0;
 	INIT_LIST_HEAD(&mq.list);
 

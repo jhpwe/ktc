@@ -18,9 +18,7 @@ int cls_show(char* dev);
 int filter_add(char* dev, __u32 parent, char* _prio, char* handle);
 
 int cgroup_init(void);
-
-int ktc_proc_insert(char* dev, char* pid, char* low, char* high, char* link_speed);
-int ktc_proc_change(char* dev, char* pid, char* low, char* high, char* link_speed);
-int ktc_proc_delete(char* dev, char* pid, char* link_speed);
+int cgroup_proc_add(char* pid, __u32 clsid);
+int cgroup_proc_del(char* pid);
 
 #endif

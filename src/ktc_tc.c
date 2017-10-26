@@ -252,10 +252,10 @@ int _print_class(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 			print_tc_classid(abuf, sizeof(abuf), t->tcm_handle);
 	}
 	//fprintf(fp, "class %s %s ", rta_getattr_str(tb[TCA_KIND]), abuf);
-	sprintf(logbuf, "class %s %s ", rta_getattr_str(tb[TCA_KIND]), abuf); // ex ) class htb 1:1	
+	sprintf(logbuf, "class %s %s ", rta_getattr_str(tb[TCA_KIND]), abuf); // ex ) class htb 1:1
 	__u32 cid = 0;
 	get_tc_classid(&cid, abuf);
-	
+
 	if (t->tcm_parent == TC_H_ROOT) {
 		//fprintf(fp, "root ");
 	}
@@ -298,7 +298,7 @@ int _print_class(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 			if(gcls_modify_u(cid, rate64, ceil64) < 0) {
 				//class not exist
 			}
-			
+
 			//fprintf(fp, "rate %s ", sprint_rate(rate64, b1));
 			//fprintf(fp, "ceil %s ", sprint_rate(ceil64, b1));
 		}
@@ -505,81 +505,6 @@ int cgroup_proc_del(char* pid)
 		printf("Failed to remove %s directory.\n", path);
 		return -1;
 	}
-
-	return 0;
-}
-
-int ktc_proc_insert(char* dev, char* pid, char* low, char* high, char* link_speed)
-{
-	__u32 clsid;
-	__u64 def_rate;
-
-	if(check_pid(pid))
-	{
-		ktclog(start_path, NULL, "process is not running");
-		return -1;
-	}
-
-	if((gcls_add(pid, low, high)) != 0)
-	{
-		//printf("total rate over the max link speed\n");
-		return -1;
-	}
-
-	cgroup_proc_add(pid, clsid);
-
-	cls_modify(dev, 0x010001, clsid, low, high, KTC_CREATE_CLASS, 0);
-
-	return 0;
-}
-
-int ktc_proc_change(char* dev, char* pid, char* low, char* high, char* link_speed)
-{
-	__u32 clsid;
-	__u64 def_rate;
-
-	if(check_pid(pid))
-	{
-		ktclog(start_path, NULL, "process is not running");
-		return -1;
-	}
-
-	if((clsid = gcls_check_pid(pid)) < 0) {
-		ktclog(start_path, NULL, "class is not exist");
-		return -1;
-	}
-
-	if((gcls_modify(pid, low, high)) != 0)
-	{
-		ktclog(start_path, NULL, "gcls modify failed");
-		return -1;
-	}
-
-	cls_modify(dev, 0x010001, clsid, low, high, KTC_CHANGE_CLASS, 0);
-
-	return 0;
-}
-
-int ktc_proc_delete(char* dev, char* pid, char* link_speed)
-{
-	__u32 clsid;
-	__u64 def_rate;
-
-	if(check_pid(pid))
-	{
-		ktclog(start_path, NULL, "process is not running");
-	//	return -1;
-	}
-
-	if((gcls_delete_pid(pid)) != 0) //fail < 0, success = res gurantee
-	{
-		ktclog(start_path, NULL, "gcls delete failed");
-		return -1;
-	}
-
-	cgroup_proc_del(pid);
-
-	cls_modify(dev, 0, clsid, NULL, NULL, KTC_DELETE_CLASS, 0);
 
 	return 0;
 }
