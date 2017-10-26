@@ -60,11 +60,8 @@ int msgq_get(mqd_t mfd, struct mq_attr* attr, struct ktc_mq_s* kmq)
 }
 
 
-int ktc_proc_insert(char* dev, char* pid, char* low, char* high, char* link_speed)
+int ktc_proc_insert(char* pid, char* low, char* high)
 {
-	__u32 clsid;
-	__u64 def_rate;
-
 	if(check_pid(pid))
 	{
 		ktclog(start_path, NULL, "process is not running");
@@ -77,26 +74,14 @@ int ktc_proc_insert(char* dev, char* pid, char* low, char* high, char* link_spee
 		return -1;
 	}
 
-	cgroup_proc_add(pid, clsid);
-
-	cls_modify(dev, 0x010001, clsid, low, high, KTC_CREATE_CLASS, 0);
-
 	return 0;
 }
 
-int ktc_proc_change(char* dev, char* pid, char* low, char* high, char* link_speed)
+int ktc_proc_change(char* pid, char* low, char* high)
 {
-	__u32 clsid;
-	__u64 def_rate;
-
 	if(check_pid(pid))
 	{
 		ktclog(start_path, NULL, "process is not running");
-		return -1;
-	}
-
-	if((clsid = gcls_check_pid(pid)) < 0) {
-		ktclog(start_path, NULL, "class is not exist");
 		return -1;
 	}
 
@@ -106,16 +91,11 @@ int ktc_proc_change(char* dev, char* pid, char* low, char* high, char* link_spee
 		return -1;
 	}
 
-	cls_modify(dev, 0x010001, clsid, low, high, KTC_CHANGE_CLASS, 0);
-
 	return 0;
 }
 
-int ktc_proc_delete(char* dev, char* pid, char* link_speed)
+int ktc_proc_delete(char* pid, char* link_speed)
 {
-	__u32 clsid;
-	__u64 def_rate;
-
 	if(check_pid(pid))
 	{
 		ktclog(start_path, NULL, "process is not running");
@@ -127,10 +107,6 @@ int ktc_proc_delete(char* dev, char* pid, char* link_speed)
 		ktclog(start_path, NULL, "gcls delete failed");
 		return -1;
 	}
-
-	cgroup_proc_del(pid);
-
-	cls_modify(dev, 0, clsid, NULL, NULL, KTC_DELETE_CLASS, 0);
 
 	return 0;
 }

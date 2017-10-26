@@ -4,7 +4,7 @@
 
 #include "utils.h"
 #include "gcls.h"
-
+#include "ktc_tc.h"
 #define CLSMAX 	0xFF
 
 struct defgcls {
@@ -135,6 +135,8 @@ int gcls_check_classid(__u32 cid) {
 
 }
 
+extern char dev[16];
+
 int gcls_add(char* pid, char* clow, char* chigh) {
 	if(gcls_check_pid(pid) > 0)
 	{
@@ -152,6 +154,10 @@ int gcls_add(char* pid, char* clow, char* chigh) {
 		return 1;
 
 	list_add(&new->list, &defgcls.list);	
+
+
+	cgroup_proc_add(pid, clsid);
+	cls_modify(dev, 0x010001, new->id, clow, chigh, KTC_CREATE_CLASS, 0);
 
 	return 0;
 }
@@ -192,7 +198,8 @@ int gcls_modify(char* pid, char* clow, char* chigh) {
 	target->low = low;	
 	target->high = high;
 	defgcls.low -= target->low;
-	target->mod = 1;
+
+	cls_modify(dev, 0x010001, target->id, clow, chigh, KTC_CHANGE_CLASS, 0);
 
 	return 0;
 }
@@ -201,6 +208,9 @@ int gcls_delete_pid(char* pid) {
 	struct gcls* del = gcls_get_pid(pid);	
 	if(del == NULL)
 		return 1;
+
+	cgroup_proc_del(pid);
+	cls_modify(dev, 0, del->id, NULL, NULL, KTC_DELETE_CLASS, 0);
 
 	defgcls.low += del->low;
 	list_del(&del->list);
