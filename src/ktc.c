@@ -44,6 +44,8 @@ int msgq_release(mqd_t mfd)
 		return -1;
 	}
 
+	remove("/dev/mqueue/ktc_mq");
+
 	return 0;
 }
 
