@@ -127,6 +127,7 @@ char link_speed[16] = {};
 int monitor() {
 	struct gcls* target = NULL;
 	struct gcls* pos = NULL;
+	struct gcls* next = NULL;
 	struct list_head* head = gcls_get_head();
 	char tmp[128];
 
@@ -135,20 +136,25 @@ int monitor() {
 		pthread_mutex_lock(&p_mutex);
 
 		/* in loop, check absence of pid */
-		list_for_each_entry(pos, head, list) {
+		list_for_each_entry_safe(pos, next, head, list) {
 			if(check_pid(pos->pid)) {	/* if absence, delete */
+				memset(tmp, 0, 128);
+				sprintf(tmp, "before %s is deleted check_pid result: %llu", pos->pid, gcls_get_remain());
+				ktclog(start_path, NULL, tmp);
+
 				cgroup_proc_del(pos->pid);
 				gcls_delete_pid(pos->pid);
 				memset(tmp, 0, 128);
-				sprintf(tmp, "%s is deleted check_pid", pos->pid);
+				sprintf(tmp, "after %s is deleted check_pid result: %llu", pos->pid, gcls_get_remain());
 			
 				ktclog(start_path, NULL, tmp);
 			}
 		}
 
+		ktclog(start_path, NULL, "here");
 		/* modify & updates all cls_show */
 		cls_show(dev); /* updates class info, rate(low) & ceil(high) of list */
-		list_for_each_entry(pos, head, list) {
+		list_for_each_entry_safe(pos, next, head, list) {
 			if(pos->mod == 0) {
 				cgroup_proc_del(pos->pid);
 				gcls_delete_pid(pos->pid);	/* if not modified == not exist in real tc --> delete */
@@ -160,6 +166,7 @@ int monitor() {
 				pos->mod = 0;
 			}
 		}
+		ktclog(start_path, NULL, "here2");
 		
 //		memset(tmp, 0, 128);
 //		sprintf(tmp, "current remain %d", gcls_get_remain());
