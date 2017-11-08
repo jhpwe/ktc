@@ -59,7 +59,7 @@ int msgq_get(mqd_t mfd, struct mq_attr* attr, struct ktc_mq_s* kmq)
 	{
 		char tmp[128];
 		memset(tmp, 0, 128);
-		sprintf(tmp, "received : %s %s\n",kmq->cmd, kmq->pid);
+		sprintf(tmp, "received : %s %s",kmq->cmd, kmq->pid);
 		ktclog(start_path, NULL, tmp);
 	}
 	return 0;
@@ -151,7 +151,7 @@ int monitor() {
 			}
 		}
 
-		ktclog(start_path, NULL, "here");
+		//ktclog(start_path, NULL, "here");
 		/* modify & updates all cls_show */
 		cls_show(dev); /* updates class info, rate(low) & ceil(high) of list */
 		list_for_each_entry_safe(pos, next, head, list) {
@@ -166,7 +166,7 @@ int monitor() {
 				pos->mod = 0;
 			}
 		}
-		ktclog(start_path, NULL, "here2");
+		//ktclog(start_path, NULL, "here2");
 		
 //		memset(tmp, 0, 128);
 //		sprintf(tmp, "current remain %d", gcls_get_remain());
@@ -220,7 +220,10 @@ void* msg_handler(void* data)
 				d_quit = 0;
 				break;
 		}
-
+		else if(strcmp(kmq.cmd, "show") == 0)
+		{
+				gcls_show();
+		}
 		pthread_mutex_unlock(&p_mutex);
 	}
 	msgq_release(mfd);

@@ -17,6 +17,8 @@ struct defgcls {
 	__u64				high;
 };
 
+extern char start_path[128];
+
 static struct defgcls 	defgcls;
 static __u32 			root;
 static __u32			empty[CLSMAX];
@@ -25,11 +27,14 @@ static __u64			min_rate;
 void gcls_show() {
 	struct gcls* pos = NULL;
 	struct list_head* head = &defgcls.list;
+	char log[128];
 
-	printf("[default] id: 0x%x / link_speed: %lld / low: %lld / high: %lld\n", defgcls.id, defgcls.link, defgcls.low, defgcls.high);
+	sprintf(log, "[default] id: 0x%x / link_speed: %lld / low: %lld / high: %lld", defgcls.id, defgcls.link, defgcls.low, defgcls.high);
+	ktclog(start_path, NULL, log);	
 	int i = 0;
 	list_for_each_entry(pos, head, list) {
-		printf("[%d] id: 0x%x / pid: 0x%s / low: %lld / high: %lld\n", i++, pos->id, pos->pid, pos->low, pos->high);
+		sprintf(log, "[%d] id: 0x%x / pid: 0x%s / low: %lld / high: %lld", i++, pos->id, pos->pid, pos->low, pos->high);
+		ktclog(start_path, NULL, log);	
 	}	
 }
 

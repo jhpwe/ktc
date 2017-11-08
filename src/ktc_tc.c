@@ -306,7 +306,7 @@ int _print_class(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		}
 
 	//fprintf(fp, "\n");
-	ktclog(start_path, NULL, logbuf);
+	//ktclog(start_path, NULL, logbuf);
 
 	//fflush(fp);
 

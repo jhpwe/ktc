@@ -156,7 +156,7 @@ int rtnl_wilddump_req_filter_fn(struct rtnl_handle *rth, int family, int type,
 
 	return send(rth->fd, &req, req.nlh.nlmsg_len, 0);
 }
-
+/*
 int rtnl_wilddump_stats_req_filter(struct rtnl_handle *rth, int fam, int type,
 				   __u32 filt_mask)
 {
@@ -176,6 +176,7 @@ int rtnl_wilddump_stats_req_filter(struct rtnl_handle *rth, int fam, int type,
 
 	return send(rth->fd, &req, sizeof(req), 0);
 }
+*/
 
 int rtnl_send(struct rtnl_handle *rth, const void *buf, int len)
 {

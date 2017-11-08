@@ -86,6 +86,16 @@ int main(int argc, char **argv)
         }
         strncpy(kmq.cmd, *argv, sizeof(kmq.cmd)-1);
   		}
+	else if(strcmp(*argv, "show") == 0)
+  		{
+        if(kmq.cmd[0] != 0)
+        {
+          printf("Duplicate command.\n");
+          usage();
+          return -1;
+        }
+        strncpy(kmq.cmd, *argv, sizeof(kmq.cmd)-1);
+  		}
   		else if(strcmp(*argv, "pid") == 0)
   		{
   			argc--;
@@ -123,14 +133,14 @@ int main(int argc, char **argv)
   		argv++;
   	}
 
-    if( (strcmp(kmq.cmd, "add") && strcmp(kmq.cmd, "delete") && strcmp(kmq.cmd, "change") && strcmp(kmq.cmd, "quit")) )
+    if( (strcmp(kmq.cmd, "add") && strcmp(kmq.cmd, "delete") && strcmp(kmq.cmd, "change") && strcmp(kmq.cmd, "quit") && strcmp(kmq.cmd, "show")) )
     {
       printf("Unknown Command %s\n", kmq.cmd);
       usage();
       return -1;
     }
 
-    if(strcmp(kmq.cmd, "quit") != 0 && strcmp(kmq.cmd, "delete"))
+    if(strcmp(kmq.cmd, "quit") != 0 && strcmp(kmq.cmd, "show") != 0 && strcmp(kmq.cmd, "delete") != 0 )
     {
       if(kmq.pid[0] == 0 || kmq.lower[0] == 0)
       {
@@ -138,6 +148,15 @@ int main(int argc, char **argv)
         return -1;
       }
     }
+
+	if(strcmp(kmq.cmd, "delete") == 0)
+	{
+		if(kmq.pid[0] == 0)
+		{
+			usage();
+			return -1;
+		}
+	}
 
     //no ceil
     strncpy(kmq.upper, kmq.lower, sizeof(kmq.lower));
